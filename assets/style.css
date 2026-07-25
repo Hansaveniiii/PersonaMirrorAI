@@ -1,0 +1,31 @@
+.main {
+    background: linear-gradient(135deg,#071a2f,#0d2c54);
+}
+
+.hero-title{
+    text-align:center;
+    font-size:55px;
+    font-weight:bold;
+    color:white;
+}
+
+.hero-sub{
+    text-align:center;
+    font-size:22px;
+    color:#d1d5db;
+}
+
+.card{
+    background:#14213d;
+    padding:25px;
+    border-radius:18px;
+    color:white;
+    border:1px solid #2f4f6f;
+    margin-top:15px;
+}
+
+.footer{
+    text-align:center;
+    color:#b8c4d8;
+    margin-top:60px;
+}

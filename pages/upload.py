@@ -2,6 +2,8 @@ import streamlit as st
 import os
 from modules.face_detection import detect_faces
 from modules.analysis_manager import save_results
+from modules.ai_engine import calculate_confidence
+from modules.emotion import detect_emotion
 
 
 UPLOAD_FOLDER = "uploads"
@@ -54,8 +56,8 @@ PersonaMirror AI will analyze your communication skills using Artificial Intelli
                 result = detect_faces(file_path)
 
                 
-                result["confidence"] = 82
-                result["emotion"] = "Confident"
+                result["confidence"] = calculate_confidence(result)
+                result["emotion"] = detect_emotion(result)
                 result["eye_contact"] = 0
                 result["speech"] = 80
                 result["leadership"] = 85
@@ -69,12 +71,11 @@ PersonaMirror AI will analyze your communication skills using Artificial Intelli
             with col3:
                 st.metric("🎞 Total Frames", result["frames"])
 
+            
             with col4:
                 st.metric("👥 Maximum Faces", result["faces"])
-
-                if "average_faces" in result:
-                    st.metric("📈 Average Faces", result["average_faces"])
-
+                st.metric("📈 Average Faces", result["average_faces"])
+                st.metric("👁 Face Visibility", f"{result['visibility']}%")
             st.subheader("📊 AI Communication Analysis")
 
             col5, col6 = st.columns(2)

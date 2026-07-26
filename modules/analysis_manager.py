@@ -14,16 +14,30 @@ def save_results(result):
 
 def load_results():
 
+    default = {
+        "frames": 0,
+        "faces": 0,
+        "average_faces": 0,
+        "visibility": 0,
+        "confidence": 0,
+        "emotion": "Not Analyzed",
+        "eye_contact": 0,
+        "speech": 0,
+        "leadership": 0,
+        "transcript": "",
+        "word_count": 0
+    }
+
     if not os.path.exists(DATA_FILE):
-        return {
-            "frames": 0,
-            "faces": 0,
-            "confidence": 0,
-            "emotion": "Not Analyzed",
-            "eye_contact": 0,
-            "speech": 0,
-            "leadership": 0
-        }
+        return default
+
+    with open(DATA_FILE, "r") as f:
+        data = json.load(f)
+
+    for key, value in default.items():
+        data.setdefault(key, value)
+
+    return data
 
     with open(DATA_FILE, "r") as f:
         return json.load(f)

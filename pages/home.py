@@ -2,160 +2,107 @@ import streamlit as st
 
 def show():
 
+    st.markdown(
+        """
+        <style>
+        .hero{
+            padding:50px;
+            border-radius:25px;
+            background:linear-gradient(135deg,#7C3AED,#2563EB);
+            color:white;
+            text-align:center;
+            margin-bottom:30px;
+        }
+
+        .hero h1{
+            font-size:52px;
+            font-weight:800;
+            margin-bottom:10px;
+        }
+
+        .hero p{
+            font-size:22px;
+            opacity:.95;
+        }
+
+        .card{
+            background:#1E293B;
+            padding:25px;
+            border-radius:20px;
+            border:1px solid #334155;
+            margin-top:20px;
+            transition:.3s;
+        }
+
+        .card:hover{
+            transform:translateY(-5px);
+            box-shadow:0 12px 30px rgba(0,0,0,.35);
+        }
+
+        .feature{
+            font-size:20px;
+            font-weight:600;
+            margin-bottom:10px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.markdown("""
-    <style>
-
-    .hero{
-        text-align:center;
-        padding:40px;
-        border-radius:20px;
-        background:linear-gradient(135deg,#071A2F,#0B4F8C,#3B82F6);
-        color:white;
-        box-shadow:0px 0px 30px rgba(0,170,255,0.3);
-    }
-
-    .hero h1{
-        font-size:60px;
-        margin-bottom:10px;
-    }
-
-    .hero h3{
-        color:#d6e8ff;
-    }
-
-    .feature{
-        background:#111827;
-        padding:25px;
-        border-radius:20px;
-        color:white;
-        text-align:center;
-        border:1px solid #2d4f7c;
-        height:220px;
-    }
-
-    .stats{
-        background:#0F172A;
-        color:white;
-        text-align:center;
-        padding:20px;
-        border-radius:18px;
-    }
-
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div class="hero">
-
-    <h1>🧠 PersonaMirror AI</h1>
-
-    <h3>See Yourself. Improve Yourself.</h3>
-
-    <p style="font-size:20px;">
-    AI Powered Communication & Personality Coach
-    </p>
-
+    <div class='hero'>
+        <h1>🧠 PersonaMirror AI</h1>
+        <p>Your Personal AI Communication Coach</p>
+        <p>Analyze speeches, interviews, presentations and become a confident leader.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("")
-
-    col1,col2=st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-
-        if st.button("🚀 Start Analysis",use_container_width=True):
-            st.success("Go to Upload page from the sidebar.")
+        st.markdown("""
+        <div class='card'>
+            <div class='feature'>🎥 Video Analysis</div>
+            Upload any speech or interview and receive instant AI feedback.
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
-
-        if st.button("📖 Learn More",use_container_width=True):
-            st.info("Visit the Founder page to learn more.")
-
-    st.write("")
-    st.write("")
-
-    st.subheader("✨ AI Features")
-
-    c1,c2,c3=st.columns(3)
-
-    with c1:
-
         st.markdown("""
-        <div class="feature">
-
-        <h2>😊</h2>
-
-        <h3>Emotion Detection</h3>
-
-        <p>
-        Detect facial emotions using Artificial Intelligence.
-        </p>
-
+        <div class='card'>
+            <div class='feature'>😊 Personality Insights</div>
+            Confidence, leadership, communication, voice and body language analysis.
         </div>
-        """,unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    with c2:
-
+    with col3:
         st.markdown("""
-        <div class="feature">
-
-        <h2>👀</h2>
-
-        <h3>Eye Contact</h3>
-
-        <p>
-        Analyze eye contact and engagement during presentations.
-        </p>
-
+        <div class='card'>
+            <div class='feature'>📈 AI Improvement Plan</div>
+            Get personalized suggestions to improve every presentation.
         </div>
-        """,unsafe_allow_html=True)
-
-    with c3:
-
-        st.markdown("""
-        <div class="feature">
-
-        <h2>🎤</h2>
-
-        <h3>Speech Analysis</h3>
-
-        <p>
-        Evaluate speaking style, clarity and confidence.
-        </p>
-
-        </div>
-        """,unsafe_allow_html=True)
-
-    st.write("")
-    st.write("")
-
-    st.subheader("📊 Platform")
-
-    a,b,c,d=st.columns(4)
-
-    with a:
-        st.metric("Videos", "0")
-
-    with b:
-        st.metric("Reports", "0")
-
-    with c:
-        st.metric("AI Models", "6")
-
-    with d:
-        st.metric("Version", "1.0")
+        """, unsafe_allow_html=True)
 
     st.divider()
 
-    st.markdown("""
-    <center>
+    st.subheader("✨ What PersonaMirror AI Can Analyze")
 
-    <h3>Designed & Developed by</h3>
+    c1, c2 = st.columns(2)
 
-    <h2>Hansaveni Bhardwaj</h2>
+    with c1:
+        st.success("✅ Confidence Score")
+        st.success("✅ Leadership Score")
+        st.success("✅ Speech Analysis")
+        st.success("✅ Voice Energy")
+        st.success("✅ Facial Emotion")
 
-    <p>© 2026 PersonaMirror AI</p>
+    with c2:
+        st.success("✅ Presentation Skills")
+        st.success("✅ Interview Readiness")
+        st.success("✅ Executive Presence")
+        st.success("✅ Communication Report")
+        st.success("✅ AI Suggestions")
 
-    </center>
-    """,unsafe_allow_html=True)
+    st.divider()
+
+    st.info("👈 Start by opening the Upload page from the sidebar.")

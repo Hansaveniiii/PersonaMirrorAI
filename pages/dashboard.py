@@ -1,135 +1,121 @@
 import streamlit as st
+import plotly.graph_objects as go
+
 from modules.analysis_manager import load_results
+
+
+def gauge(title, value, color):
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+
+        title={"text": title},
+
+        gauge={
+            "axis": {"range": [0, 100]},
+
+            "bar": {"color": color},
+
+            "steps": [
+                {"range": [0, 40], "color": "#2E2E2E"},
+                {"range": [40, 70], "color": "#444444"},
+                {"range": [70, 100], "color": "#666666"},
+            ]
+        }
+    ))
+
+    fig.update_layout(
+        height=280,
+        margin=dict(l=10, r=10, t=60, b=10)
+    )
+
+    return fig
 
 
 def show():
 
+    st.title("📊 AI Communication Dashboard")
+
     result = load_results()
 
-    st.title("📊 PersonaMirror AI Dashboard")
-    st.caption("AI-Powered Communication Performance Dashboard")
-
-    # ---------------- Overall Score ----------------
-
-    overall_score = int(
-        (
-            result["confidence"]
-            + result["leadership"]
-            + result["eye_contact"]
-            + min(result["speech"], 100)
-        ) / 4
-    )
-
-    st.metric("🏆 Overall AI Score", f"{overall_score}/100")
-
-    st.divider()
-
-    # ---------------- Top Metrics ----------------
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric("⭐ Confidence", f"{result['confidence']}%")
-
-    with col2:
-        st.metric("👑 Leadership", f"{result['leadership']}%")
-
-    with col3:
-        st.metric("😊 Emotion", result["emotion"])
-
-    st.divider()
-
-    # ---------------- Communication Scores ----------------
-
-    st.subheader("📈 Communication Scores")
-
-    st.write("⭐ Confidence")
-    st.progress(result["confidence"] / 100)
-
-    st.write(f"{result['confidence']}%")
-
-    st.write("👀 Eye Contact")
-    st.progress(result["eye_contact"] / 100)
-
-    st.write(f"{result['eye_contact']}%")
-
-    speech_score = min(result["speech"], 100)
-
-    st.write("🎤 Speech")
-
-    st.progress(speech_score / 100)
-
-    st.write(f"{result['speech']} WPM")
-
-    st.write("👑 Leadership")
-
-    st.progress(result["leadership"] / 100)
-
-    st.write(f"{result['leadership']}%")
-
-    st.write("👁 Face Visibility")
-
-    st.progress(result["visibility"] / 100)
-
-    st.write(f"{result['visibility']}%")
-
-    st.divider()
-
-    # ---------------- Video Statistics ----------------
-
-    st.subheader("🎥 Video Statistics")
+    if result["confidence"] == 0:
+        st.warning("Please analyze a video first.")
+        return
 
     c1, c2, c3 = st.columns(3)
 
     with c1:
-        st.metric("Frames", result["frames"])
+        st.plotly_chart(
+            gauge("Confidence", result["confidence"], "#7C3AED"),
+            use_container_width=True
+        )
 
     with c2:
-        st.metric("Maximum Faces", result["faces"])
+        st.plotly_chart(
+            gauge("Leadership", result["leadership"], "#06B6D4"),
+            use_container_width=True
+        )
 
     with c3:
-        st.metric("Average Faces", result["average_faces"])
+        st.plotly_chart(
+            gauge("Eye Contact", result["eye_contact"], "#22C55E"),
+            use_container_width=True
+        )
 
     st.divider()
 
-    # ---------------- Communication Summary ----------------
+    radar = go.Figure()
 
-    st.subheader("🧠 AI Communication Summary")
+    radar.add_trace(go.Scatterpolar(
+        r=[
+            result["confidence"],
+            result["leadership"],
+            result["eye_contact"],
+            result["voice_confidence"],
+            result["gesture_score"],
+            result["posture"],
+        ],
 
-    if overall_score >= 85:
-        st.success("Outstanding communication performance.")
-    elif overall_score >= 70:
-        st.info("Good communication with room for improvement.")
-    else:
-        st.warning("Practice is recommended to improve communication skills.")
+        theta=[
+            "Confidence",
+            "Leadership",
+            "Eye Contact",
+            "Voice",
+            "Gestures",
+            "Posture",
+        ],
+
+        fill="toself"
+    ))
+
+    radar.update_layout(
+        polar=dict(radialaxis=dict(range=[0, 100])),
+        showlegend=False,
+        height=500
+    )
+
+    st.subheader("🕸 Personality Radar")
+
+    st.plotly_chart(
+        radar,
+        use_container_width=True
+    )
 
     st.divider()
 
-    # ---------------- Personalized Suggestions ----------------
+    a, b, c = st.columns(3)
 
-    st.subheader("💡 Personalized Suggestions")
-
-    if result["confidence"] < 80:
-        st.warning("Increase confidence by practicing mock presentations.")
-
-    if result["eye_contact"] < 70:
-        st.warning("Maintain eye contact with the camera while speaking.")
-
-    if result["speech"] > 170:
-        st.warning("Your speaking speed is too fast. Slow down slightly.")
-
-    elif result["speech"] < 110:
-        st.warning("Speak a little faster to improve engagement.")
-
-    else:
-        st.success("Your speaking speed is well balanced.")
-
-    if result["visibility"] < 90:
-        st.warning("Keep your face centered and visible throughout the recording.")
-
-    if result["leadership"] >= 80:
-        st.success("Excellent leadership presence detected.")
+    a.metric("😊 Emotion", result["emotion"])
+    b.metric("🗣 Speech", f'{result["speech"]} WPM')
+    c.metric("👥 Face Visibility", f'{result["visibility"]}%')
 
     st.divider()
 
-    st.success("🚀 More advanced AI analytics and charts are coming soon.")
+    st.subheader("🤖 AI Summary")
+
+    st.success(result["feedback"]["strengths"])
+
+    st.warning(result["feedback"]["improvements"])
+
+    st.info(result["feedback"]["suggestions"])

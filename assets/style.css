@@ -1,31 +1,128 @@
-.main {
-    background: linear-gradient(135deg,#071a2f,#0d2c54);
+/* ===========================
+   PersonaMirror AI Theme
+=========================== */
+
+html, body, [class*="css"] {
+    font-family: "Inter", sans-serif;
 }
 
-.hero-title{
-    text-align:center;
-    font-size:55px;
-    font-weight:bold;
+/* Main background */
+.stApp {
+    background: linear-gradient(135deg,#0F172A,#111827,#1E293B);
+    color: white;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"]{
+    background:#111827;
+    border-right:1px solid #2E3A59;
+}
+
+/* Titles */
+h1{
     color:white;
+    font-size:42px;
+    font-weight:700;
 }
 
-.hero-sub{
-    text-align:center;
-    font-size:22px;
-    color:#d1d5db;
+h2,h3{
+    color:#F8FAFC;
 }
 
-.card{
-    background:#14213d;
+/* Buttons */
+
+.stButton>button{
+
+    width:100%;
+    border-radius:15px;
+    border:none;
+
+    padding:15px;
+
+    background:linear-gradient(
+        90deg,
+        #7C3AED,
+        #06B6D4
+    );
+
+    color:white;
+
+    font-size:18px;
+
+    font-weight:600;
+
+    transition:0.3s;
+}
+
+.stButton>button:hover{
+
+    transform:scale(1.03);
+
+    box-shadow:0 0 20px rgba(124,58,237,.6);
+}
+
+/* Metric cards */
+
+div[data-testid="metric-container"]{
+
+    background:#1E293B;
+
+    border-radius:20px;
+
+    padding:20px;
+
+    border:1px solid #334155;
+
+    box-shadow:0 10px 25px rgba(0,0,0,.35);
+
+}
+
+/* Progress */
+
+.stProgress>div>div{
+
+    background:linear-gradient(
+        90deg,
+        #7C3AED,
+        #06B6D4
+    );
+
+}
+
+/* File uploader */
+
+[data-testid="stFileUploader"]{
+
+    border:2px dashed #7C3AED;
+
+    border-radius:20px;
+
+    background:#111827;
+
     padding:25px;
-    border-radius:18px;
-    color:white;
-    border:1px solid #2f4f6f;
-    margin-top:15px;
+
 }
 
-.footer{
-    text-align:center;
-    color:#b8c4d8;
-    margin-top:60px;
+/* Success */
+
+.stSuccess{
+
+    border-radius:15px;
+
+}
+
+/* Warning */
+
+.stWarning{
+
+    border-radius:15px;
+
+}
+
+/* Info */
+
+.stInfo{
+
+    border-radius:15px;
+
 }

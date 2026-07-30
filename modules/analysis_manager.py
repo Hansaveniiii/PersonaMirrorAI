@@ -19,13 +19,33 @@ def load_results():
         "faces": 0,
         "average_faces": 0,
         "visibility": 0,
+
         "confidence": 0,
         "emotion": "Not Analyzed",
         "eye_contact": 0,
         "speech": 0,
         "leadership": 0,
+
         "transcript": "",
-        "word_count": 0
+        "word_count": 0,
+
+        "voice_energy": 0,
+        "pause_score": 0,
+        "voice_confidence": 0,
+
+        "posture": 0,
+        "smile": 0,
+        "gesture_score": 0,
+
+        "interview_score": 0,
+        "presentation_score": 0,
+        "executive_presence": 0,
+
+        "feedback": {
+            "strengths": [],
+            "improvements": [],
+            "suggestions": []
+        }
     }
 
     if not os.path.exists(DATA_FILE):
@@ -38,6 +58,3 @@ def load_results():
         data.setdefault(key, value)
 
     return data
-
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)

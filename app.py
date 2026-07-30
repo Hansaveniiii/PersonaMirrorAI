@@ -5,14 +5,34 @@ import os
 import streamlit as st
 from streamlit_option_menu import option_menu
 
+from modules.pdf_report import generate_pdf
+from modules.analysis_manager import load_results
+
 from pages.home import show as home_page
 from pages.upload import show as upload_page
 from pages.dashboard import show as dashboard_page
+from pages.mock_interview import show as interview_page
 
-from modules.analysis_manager import load_results
+
+# -------------------------
+# Load Custom CSS
+# -------------------------
+
+def load_css():
+    css_path = "assets/styles/style.css"
+
+    if os.path.exists(css_path):
+        with open(css_path) as f:
+            st.markdown(
+                f"<style>{f.read()}</style>",
+                unsafe_allow_html=True
+            )
+
+
 # -------------------------
 # Page Configuration
 # -------------------------
+
 st.set_page_config(
     page_title="PersonaMirror AI",
     page_icon="🧠",
@@ -20,9 +40,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Load CSS AFTER page configuration
+load_css()
+
+
 # -------------------------
 # Sidebar
 # -------------------------
+
 with st.sidebar:
 
     selected = option_menu(
@@ -33,6 +58,7 @@ with st.sidebar:
             "Upload",
             "Analysis",
             "Dashboard",
+            "Mock Interview",
             "Report",
             "Founder"
         ],
@@ -42,6 +68,7 @@ with st.sidebar:
             "camera-video",
             "cpu",
             "bar-chart",
+            "person-workspace",
             "file-earmark-text",
             "person-circle"
         ],
@@ -58,6 +85,7 @@ if selected == "Home":
     home_page()
 
 elif selected == "Upload":
+
     upload_page()
 
 elif selected == "Analysis":
@@ -66,7 +94,7 @@ elif selected == "Analysis":
 
     result = load_results()
 
-    if result is None:
+    if result["confidence"] == 0:
 
         st.warning("⚠️ Please upload and analyze a video first.")
 
@@ -77,20 +105,51 @@ elif selected == "Analysis":
         col1, col2 = st.columns(2)
 
         with col1:
-            st.metric("⭐ Confidence", f"{result['confidence']}%")
-            st.metric("👀 Eye Contact", f"{result['eye_contact']}%")
-            st.metric("😊 Emotion", result["emotion"])
+
+            st.metric(
+                "⭐ Confidence",
+                f"{result['confidence']}%"
+            )
+
+            st.metric(
+                "👀 Eye Contact",
+                f"{result['eye_contact']}%"
+            )
+
+            st.metric(
+                "😊 Emotion",
+                result["emotion"]
+            )
 
         with col2:
-            st.metric("👑 Leadership", f"{result['leadership']}%")
-            st.metric("🗣 Speaking Speed", f"{result['speech']} WPM")
-            st.metric("👥 Face Visibility", f"{result['visibility']}%")
+
+            st.metric(
+                "👑 Leadership",
+                f"{result['leadership']}%"
+            )
+
+            st.metric(
+                "🗣 Speaking Speed",
+                f"{result['speech']} WPM"
+            )
+
+            st.metric(
+                "👥 Face Visibility",
+                f"{result['visibility']}%"
+            )
 
         st.subheader("📝 Speech Transcript")
+
         st.write(result["transcript"])
 
 elif selected == "Dashboard":
+
     dashboard_page()
+
+elif selected == "Mock Interview":
+
+    interview_page()
+
 elif selected == "Report":
 
     st.title("📄 AI Communication Report")
@@ -98,36 +157,97 @@ elif selected == "Report":
     result = load_results()
 
     if result["confidence"] == 0:
+
         st.warning("⚠️ Please analyze a video first.")
+
     else:
 
-        st.success("✅ PersonaMirror AI Report")
+        pdf_path = generate_pdf(result)
 
-        st.metric("Overall Confidence", f"{result['confidence']}%")
+        st.success("✅ PersonaMirror AI Report Generated")
 
-        st.subheader("😊 Emotion")
-        st.write(result["emotion"])
+        overall_score = int(
+            (
+                result["confidence"]
+                + result["leadership"]
+                + result["eye_contact"]
+                + min(result["speech"], 100)
+            ) / 4
+        )
 
-        st.subheader("🗣 Speech Transcript")
+        st.metric(
+            "🏆 Overall AI Score",
+            f"{overall_score}/100"
+        )
+
+        st.divider()
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.metric(
+                "⭐ Confidence",
+                f"{result['confidence']}%"
+            )
+
+            st.metric(
+                "👀 Eye Contact",
+                f"{result['eye_contact']}%"
+            )
+
+            st.metric(
+                "😊 Emotion",
+                result["emotion"]
+            )
+
+        with col2:
+
+            st.metric(
+                "👑 Leadership",
+                f"{result['leadership']}%"
+            )
+
+            st.metric(
+                "🗣 Speaking Speed",
+                f"{result['speech']} WPM"
+            )
+
+            st.metric(
+                "👁 Face Visibility",
+                f"{result['visibility']}%"
+            )
+
+        st.divider()
+
+        st.subheader("📝 Speech Transcript")
+
         st.write(result["transcript"])
+
+        st.divider()
 
         st.subheader("📊 Communication Summary")
 
-        st.write(f"""
-• Confidence: **{result['confidence']}%**
-
-• Leadership: **{result['leadership']}%**
-
-• Speaking Speed: **{result['speech']} WPM**
-
-• Face Visibility: **{result['visibility']}%**
-
-• Eye Contact: **{result['eye_contact']}%**
+        st.markdown(f"""
+- ⭐ **Confidence:** {result['confidence']}%
+- 👑 **Leadership:** {result['leadership']}%
+- 👀 **Eye Contact:** {result['eye_contact']}%
+- 🗣 **Speech Speed:** {result['speech']} WPM
+- 👁 **Face Visibility:** {result['visibility']}%
+- 😊 **Emotion:** {result['emotion']}
 """)
 
-        st.info(
-            "💡 A downloadable professional PDF report will be available in the next update."
-        )
+        st.divider()
+
+        with open(pdf_path, "rb") as pdf_file:
+
+            st.download_button(
+                label="📥 Download AI Report (PDF)",
+                data=pdf_file,
+                file_name="PersonaMirror_AI_Report.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
 elif selected == "Founder":
 
@@ -138,15 +258,21 @@ elif selected == "Founder":
     with col1:
 
         if os.path.exists("assets/images/founder.jpg"):
-            st.image("assets/images/founder.jpg", width=260)
+
+            st.image(
+                "assets/images/founder.jpg",
+                width=260
+            )
 
         elif os.path.exists("assets/images/founder.png"):
-            st.image("assets/images/founder.png", width=260)
 
-        elif os.path.exists("assets/images/founder.png..jpg"):
-            st.image("assets/images/founder.png..jpg", width=260)
+            st.image(
+                "assets/images/founder.png",
+                width=260
+            )
 
         else:
+
             st.warning("Founder image not found.")
 
     with col2:
@@ -162,7 +288,9 @@ Building Artificial Intelligence that helps people become
 better speakers, stronger leaders and more confident communicators.
 """)
 
-        st.success("🎯 Mission: AI Communication Coach for Everyone")
+        st.success(
+            "🎯 Mission: AI Communication Coach for Everyone"
+        )
 
     st.divider()
 
@@ -232,15 +360,11 @@ through intelligent AI feedback.
 
     st.markdown("""
 - 🎥 Video Upload
-
 - 😀 Face Detection
-
 - 📊 Communication Dashboard
-
 - 📈 Confidence Analysis
-
 - 🗣 Speech Analysis
-
+- 🎤 AI Mock Interview
 - 🤖 AI Suggestions
 """)
 
@@ -261,21 +385,22 @@ through intelligent AI feedback.
     }
 
     for feature, status in roadmap.items():
+
         st.write(f"**{feature}** — {status}")
 
     st.divider()
 
     st.subheader("🛠 Technology Stack")
 
-    tech1, tech2, tech3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
 
-    with tech1:
+    with c1:
         st.metric("Language", "Python")
 
-    with tech2:
+    with c2:
         st.metric("Framework", "Streamlit")
 
-    with tech3:
+    with c3:
         st.metric("AI", "OpenCV + ML")
 
     st.divider()

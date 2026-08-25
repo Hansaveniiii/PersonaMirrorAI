@@ -2,6 +2,7 @@ streamlit==1.60.0
 streamlit-option-menu==0.4.0
 streamlit-lottie==0.0.5
 streamlit-webrtc==0.76.2
+opencv-contrib-python-headless==4.11.0.86
 streamlit-camera-input-live==0.2.0
 streamlit-mic-recorder==0.0.8
 
@@ -17,7 +18,6 @@ ml-dtypes==0.3.2
 jax==0.4.23
 jaxlib==0.4.23
 
-opencv-contrib-python==4.11.0.86
 
 torch==2.13.0
 faster-whisper==1.2.1

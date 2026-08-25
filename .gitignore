@@ -1,27 +1,21 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Virtual environments
 .venv/
-.venv311/
 venv/
-
-# Streamlit
-.streamlit/
-
-# Generated files
+ai311/
+__pycache__/
+*.pyc
+.env
 uploads/
 reports/
-data/
-
-# Models
-models/
-
-# macOS
 .DS_Store
 
-# VS Code
-.vscode/
-.idea/
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local dependency/debug files
+environment-before-fix.txt
+requirements-backup-before-fix.txt
+requirements-backup.txt
+requirements-before-dependency-fix.txt
+requirements-working.txt

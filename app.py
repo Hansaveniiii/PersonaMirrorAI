@@ -1,4 +1,6 @@
 import sys
+
+from modules import eye_contact
 print(sys.executable)
 
 import os
@@ -7,11 +9,22 @@ from streamlit_option_menu import option_menu
 
 from modules.pdf_report import generate_pdf
 from modules.analysis_manager import load_results
-
-from pages.home import show as home_page
-from pages.upload import show as upload_page
-from pages.dashboard import show as dashboard_page
-from pages.mock_interview import show as interview_page
+import hashlib
+from app_pages.home import show as home_page
+from app_pages.upload import show as upload_page
+from app_pages.dashboard import show as dashboard_page
+from app_pages.interview_start import show as interview_start_page
+from app_pages.mock_interview import show as interview_page
+from app_pages.presentation_coach import show as presentation_page
+from app_pages.resume_doctor import show as resume_page
+from app_pages.job_match import show as job_match_page
+from app_pages.resume_rewriter import show as rewriter_page
+from app_pages.founder import show as founder_page
+def has_current_analysis():
+    return (
+        st.session_state.get("analysis_ready", False)
+        and st.session_state.get("current_upload_key")
+    )
 
 
 # -------------------------
@@ -22,11 +35,18 @@ def load_css():
     css_path = "assets/styles/style.css"
 
     if os.path.exists(css_path):
-        with open(css_path) as f:
-            st.markdown(
-                f"<style>{f.read()}</style>",
-                unsafe_allow_html=True
-            )
+
+        with open(css_path, "r", encoding="utf-8") as f:
+            css = f.read()
+
+        st.markdown(
+            f"<style>{css}</style>",
+            unsafe_allow_html=True
+        ) 
+
+    else:
+
+        st.error(f"CSS file not found: {os.path.abspath(css_path)}")
 
 
 # -------------------------
@@ -39,6 +59,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# =========================================================
+# FRESH APP SESSION
+# =========================================================
+
+if "analysis_ready" not in st.session_state:
+    st.session_state["analysis_ready"] = False
+
+if "current_upload_key" not in st.session_state:
+    st.session_state["current_upload_key"] = None
+if "current_analysis" not in st.session_state:
+    st.session_state["current_analysis"] = None
 
 # Load CSS AFTER page configuration
 load_css()
@@ -59,18 +90,25 @@ with st.sidebar:
             "Analysis",
             "Dashboard",
             "Mock Interview",
+            "Presentation Coach",
+            "Resume Doctor",
+            "AI Job Match",
+            "AI Resume Rewriter",
             "Report",
-            "Founder"
+            "Founder",
         ],
-
-        icons=[
+       icons=[
             "house",
             "camera-video",
             "cpu",
             "bar-chart",
             "person-workspace",
+            "easel",
             "file-earmark-text",
-            "person-circle"
+            "briefcase",
+            "pencil-square",
+            "file-earmark-pdf",
+            "person-circle",
         ],
 
         default_index=0,
@@ -92,55 +130,123 @@ elif selected == "Analysis":
 
     st.title("🤖 AI Analysis")
 
-    result = load_results()
+    # =========================================================
+    # ONLY SHOW ANALYSIS FOR CURRENT SESSION
+    # =========================================================
 
-    if result["confidence"] == 0:
+    if not has_current_analysis():
 
-        st.warning("⚠️ Please upload and analyze a video first.")
+        st.info(
+            "🎥 No analysis available for this session."
+        )
+
+        st.markdown(
+            """
+            ### Start your PersonaMirror analysis
+
+            1. Go to **Upload**
+            2. Upload your video
+            3. Choose the analysis type
+            4. Click **Analyze My Performance**
+            5. Return here to view your results
+            """
+        )
 
     else:
 
-        st.success("✅ AI Analysis Loaded Successfully")
+        result = st.session_state.get(
+            "current_analysis"
+        )
+
+        st.success(
+            "✅ AI Analysis Loaded Successfully"
+        )
 
         col1, col2 = st.columns(2)
 
         with col1:
 
+            confidence = result.get("confidence")
+
             st.metric(
                 "⭐ Confidence",
-                f"{result['confidence']}%"
+                f"{confidence}%"
+                if confidence is not None
+                else "Not measured"
+            )
+
+            eye_contact = result.get(
+                "eye_contact"
             )
 
             st.metric(
                 "👀 Eye Contact",
-                f"{result['eye_contact']}%"
+                f"{eye_contact}%"
+                if eye_contact is not None
+                else "Not measured"
             )
 
             st.metric(
                 "😊 Emotion",
-                result["emotion"]
+                result.get(
+                    "emotion",
+                    "Unknown"
+                )
             )
 
         with col2:
 
+            leadership = result.get(
+                "leadership"
+            )
+
             st.metric(
                 "👑 Leadership",
-                f"{result['leadership']}%"
+                f"{leadership}%"
+                if leadership is not None
+                else "Not measured"
+            )
+
+            speech = result.get(
+                "speech"
             )
 
             st.metric(
                 "🗣 Speaking Speed",
-                f"{result['speech']} WPM"
+                f"{speech} WPM"
+                if speech is not None
+                else "Not measured"
+            )
+
+            visibility = result.get(
+                "visibility"
             )
 
             st.metric(
                 "👥 Face Visibility",
-                f"{result['visibility']}%"
+                f"{visibility}%"
+                if visibility is not None
+                else "Not reliably measured"
             )
 
-        st.subheader("📝 Speech Transcript")
+        st.subheader(
+            "📝 Speech Transcript"
+        )
 
-        st.write(result["transcript"])
+        transcript = result.get(
+            "transcript",
+            ""
+        )
+
+        if transcript:
+
+            st.write(transcript)
+
+        else:
+
+            st.info(
+                "No transcript available for this recording."
+            )
 
 elif selected == "Dashboard":
 
@@ -148,32 +254,127 @@ elif selected == "Dashboard":
 
 elif selected == "Mock Interview":
 
-    interview_page()
+    if st.session_state.get("start_interview", False):
+        interview_page()
+    else:
+        interview_start_page()
 
+elif selected == "Presentation Coach":
+
+        presentation_page()
+elif selected == "Resume Doctor":
+    resume_page()
+
+elif selected == "AI Job Match":
+    job_match_page()
+
+elif selected == "AI Resume Rewriter":
+    rewriter_page()
 elif selected == "Report":
 
     st.title("📄 AI Communication Report")
 
-    result = load_results()
+    result = st.session_state.get(
+    "current_analysis"
+    )
 
-    if result["confidence"] == 0:
-
-        st.warning("⚠️ Please analyze a video first.")
+    if not result:
+        st.warning("⚠️ Please upload and analyze a video first.")
 
     else:
 
-        pdf_path = generate_pdf(result)
+        # ---------------------------------------------------------
+        # SAFE VALUES
+        # ---------------------------------------------------------
 
-        st.success("✅ PersonaMirror AI Report Generated")
+        confidence = result.get("confidence")
+        leadership = result.get("leadership")
+        eye_contact = result.get("eye_contact")
+        speech = result.get("speech")
+        visibility = result.get("visibility")
+        emotion = result.get("emotion", "Unknown")
 
-        overall_score = int(
-            (
-                result["confidence"]
-                + result["leadership"]
-                + result["eye_contact"]
-                + min(result["speech"], 100)
-            ) / 4
-        )
+        # ---------------------------------------------------------
+        # DISPLAY UNAVAILABLE METRICS CORRECTLY
+        # ---------------------------------------------------------
+
+        if eye_contact is None:
+            eye_contact_display = "Not measured"
+        else:
+            eye_contact_display = f"{eye_contact}%"
+
+        if visibility is None:
+            visibility_display = "Not measured"
+        else:
+            visibility_display = f"{visibility}%"
+
+        if speech is None:
+            speech_display = "Not measured"
+        else:
+            speech_display = f"{speech} WPM"
+
+        # ---------------------------------------------------------
+        # OVERALL SCORE
+        #
+        # Only use measurements that actually exist.
+        # Do NOT treat unavailable measurements as zero.
+        # ---------------------------------------------------------
+
+        score_values = []
+
+        if confidence is not None:
+            score_values.append(float(confidence))
+
+        if leadership is not None:
+            score_values.append(float(leadership))
+
+        # Speech-rate quality score
+        if speech is not None and speech > 0:
+
+            if 110 <= speech <= 160:
+                speech_score = 100
+
+            elif 100 <= speech < 110 or 160 < speech <= 175:
+                speech_score = 90
+
+            elif 90 <= speech < 100 or 175 < speech <= 190:
+                speech_score = 75
+
+            else:
+                speech_score = 60
+
+            score_values.append(float(speech_score))
+
+        if score_values:
+            overall_score = round(
+                sum(score_values) / len(score_values)
+            )
+        else:
+            overall_score = 0
+
+        # ---------------------------------------------------------
+        # PDF
+        # ---------------------------------------------------------
+
+        try:
+
+            pdf_path = generate_pdf(result)
+
+            st.success(
+                "✅ PersonaMirror AI Report Generated"
+            )
+
+        except Exception as e:
+
+            pdf_path = None
+
+            st.warning(
+                f"PDF generation unavailable: {e}"
+            )
+
+        # ---------------------------------------------------------
+        # OVERALL SCORE
+        # ---------------------------------------------------------
 
         st.metric(
             "🏆 Overall AI Score",
@@ -182,234 +383,182 @@ elif selected == "Report":
 
         st.divider()
 
+        # ---------------------------------------------------------
+        # CORE METRICS
+        # ---------------------------------------------------------
+
         col1, col2 = st.columns(2)
 
         with col1:
 
             st.metric(
                 "⭐ Confidence",
-                f"{result['confidence']}%"
+                f"{confidence}%"
             )
 
             st.metric(
                 "👀 Eye Contact",
-                f"{result['eye_contact']}%"
+                eye_contact_display
             )
 
             st.metric(
                 "😊 Emotion",
-                result["emotion"]
+                emotion
             )
 
         with col2:
 
             st.metric(
                 "👑 Leadership",
-                f"{result['leadership']}%"
+                f"{leadership}%"
             )
 
             st.metric(
                 "🗣 Speaking Speed",
-                f"{result['speech']} WPM"
+                speech_display
             )
 
             st.metric(
                 "👁 Face Visibility",
-                f"{result['visibility']}%"
+                visibility_display
             )
 
         st.divider()
+
+        # ---------------------------------------------------------
+        # TRANSCRIPT
+        # ---------------------------------------------------------
 
         st.subheader("📝 Speech Transcript")
 
-        st.write(result["transcript"])
+        transcript = result.get(
+            "transcript",
+            ""
+        )
 
-        st.divider()
+        if transcript:
 
-        st.subheader("📊 Communication Summary")
-
-        st.markdown(f"""
-- ⭐ **Confidence:** {result['confidence']}%
-- 👑 **Leadership:** {result['leadership']}%
-- 👀 **Eye Contact:** {result['eye_contact']}%
-- 🗣 **Speech Speed:** {result['speech']} WPM
-- 👁 **Face Visibility:** {result['visibility']}%
-- 😊 **Emotion:** {result['emotion']}
-""")
-
-        st.divider()
-
-        with open(pdf_path, "rb") as pdf_file:
-
-            st.download_button(
-                label="📥 Download AI Report (PDF)",
-                data=pdf_file,
-                file_name="PersonaMirror_AI_Report.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-
-elif selected == "Founder":
-
-    st.title("👩‍💻 Meet the Founder")
-
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-
-        if os.path.exists("assets/images/founder.jpg"):
-
-            st.image(
-                "assets/images/founder.jpg",
-                width=260
-            )
-
-        elif os.path.exists("assets/images/founder.png"):
-
-            st.image(
-                "assets/images/founder.png",
-                width=260
-            )
+            st.write(transcript)
 
         else:
 
-            st.warning("Founder image not found.")
+            st.info(
+                "No transcript available for this recording."
+            )
 
-    with col2:
+        st.divider()
 
-        st.header("Hansaveni Bhardwaj")
+        # ---------------------------------------------------------
+        # COMMUNICATION SUMMARY
+        # ---------------------------------------------------------
 
-        st.markdown("""
-### Founder & Developer
+        st.subheader("📊 Communication Summary")
 
-Creator of **PersonaMirror AI**
+        summary_items = [
+            f"⭐ **Confidence:** {confidence}%",
+            f"👑 **Leadership:** {leadership}%",
+            f"👀 **Eye Contact:** {eye_contact_display}",
+            f"🗣 **Speech Speed:** {speech_display}",
+            f"👁 **Face Visibility:** {visibility_display}",
+            f"😊 **Emotion:** {emotion}",
+        ]
 
-Building Artificial Intelligence that helps people become
-better speakers, stronger leaders and more confident communicators.
-""")
-
-        st.success(
-            "🎯 Mission: AI Communication Coach for Everyone"
+        st.markdown(
+            "\n".join(
+                f"- {item}"
+                for item in summary_items
+            )
         )
 
-    st.divider()
+        st.divider()
 
-    st.subheader("🚀 About PersonaMirror AI")
+        # ---------------------------------------------------------
+        # AI FEEDBACK
+        # ---------------------------------------------------------
 
-    st.write("""
-PersonaMirror AI is an intelligent communication coach that analyzes
-videos and provides personalized feedback on communication,
-confidence, leadership, eye contact, facial expressions,
-speech delivery and overall personality.
+        feedback = result.get(
+            "feedback",
+            {}
+        )
 
-Instead of generic advice, every user receives customized
-suggestions based on their own performance.
-""")
+        if isinstance(feedback, dict):
 
-    st.divider()
+            strengths = feedback.get(
+                "strengths",
+                []
+            )
 
-    st.subheader("🌟 Vision")
+            improvements = feedback.get(
+                "improvements",
+                []
+            )
 
-    st.info("""
-To build the world's smartest AI Communication Coach that helps
-students, professionals, educators and public speakers improve
-through intelligent AI feedback.
-""")
+            suggestions = feedback.get(
+                "suggestions",
+                []
+            )
 
-    st.divider()
+            if strengths:
 
-    st.subheader("🏆 Founder Highlights")
+                st.subheader(
+                    "🌟 What You Are Doing Well"
+                )
 
-    col1, col2 = st.columns(2)
+                for item in strengths:
 
-    with col1:
+                    st.success(
+                        f"✓ {item}"
+                    )
 
-        st.markdown("""
-✅ Head Girl
+            if improvements:
 
-✅ Public Speaker
+                st.subheader(
+                    "⚠️ What Needs Attention"
+                )
 
-✅ Inter-School Debate Winner
+                for item in improvements:
 
-✅ College Anchor
+                    st.warning(
+                        f"→ {item}"
+                    )
 
-✅ Event Host
+            if suggestions:
 
-✅ Poetry Performer
-""")
+                st.subheader(
+                    "🎯 Personalized Recommendations"
+                )
 
-    with col2:
+                for index, item in enumerate(
+                    suggestions,
+                    start=1
+                ):
 
-        st.markdown("""
-✅ Leadership Experience
+                    st.info(
+                        f"**{index}.** {item}"
+                    )
 
-✅ AI Developer
+        # ---------------------------------------------------------
+        # DOWNLOAD PDF
+        # ---------------------------------------------------------
 
-✅ Python Programmer
+        if pdf_path and os.path.exists(pdf_path):
 
-✅ Machine Learning Enthusiast
+            st.divider()
 
-✅ Communication Coach
+            with open(
+                pdf_path,
+                "rb"
+            ) as pdf_file:
 
-✅ Startup Builder
-""")
+                st.download_button(
+                    label="📥 Download AI Report (PDF)",
+                    data=pdf_file,
+                    file_name="PersonaMirror_AI_Report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
-    st.divider()
+elif selected == "Founder":
 
-    st.subheader("🧠 Current AI Features")
-
-    st.markdown("""
-- 🎥 Video Upload
-- 😀 Face Detection
-- 📊 Communication Dashboard
-- 📈 Confidence Analysis
-- 🗣 Speech Analysis
-- 🎤 AI Mock Interview
-- 🤖 AI Suggestions
-""")
-
-    st.divider()
-
-    st.subheader("🚀 Upcoming Features")
-
-    roadmap = {
-        "Emotion Detection": "🟡 In Progress",
-        "Eye Contact Tracking": "🟡 In Progress",
-        "Body Language Analysis": "🔜 Planned",
-        "Voice Tone Analysis": "🔜 Planned",
-        "Gesture Recognition": "🔜 Planned",
-        "AI Communication Coach": "🔜 Planned",
-        "Professional PDF Report": "🔜 Planned",
-        "Android App": "🔜 Planned",
-        "iOS App": "🔜 Planned"
-    }
-
-    for feature, status in roadmap.items():
-
-        st.write(f"**{feature}** — {status}")
-
-    st.divider()
-
-    st.subheader("🛠 Technology Stack")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        st.metric("Language", "Python")
-
-    with c2:
-        st.metric("Framework", "Streamlit")
-
-    with c3:
-        st.metric("AI", "OpenCV + ML")
-
-    st.divider()
-
-    st.subheader("❤️ Motto")
-
-    st.success("See Yourself. Improve Yourself.")
-
-    st.divider()
-
-    st.caption("Designed & Developed by Hansaveni Bhardwaj")
-    st.caption("© 2026 PersonaMirror AI • All Rights Reserved")
+    founder_page()
+    

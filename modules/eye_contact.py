@@ -5,6 +5,11 @@ def analyze_eye_contact(video_path):
 
     cap = cv2.VideoCapture(video_path)
 
+    face_detector = cv2.CascadeClassifier(
+        cv2.data.haarcascades +
+        "haarcascade_frontalface_default.xml"
+    )
+
     total_frames = 0
     looking_frames = 0
 
@@ -17,30 +22,24 @@ def analyze_eye_contact(video_path):
 
         total_frames += 1
 
-        # Placeholder eye tracking logic
-        # Real MediaPipe Tasks integration will be added next
-
         gray = cv2.cvtColor(
             frame,
             cv2.COLOR_BGR2GRAY
         )
 
-        brightness = gray.mean()
+        faces = face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.2,
+            minNeighbors=5,
+            minSize=(50, 50)
+        )
 
-        if brightness > 30:
+        if len(faces) > 0:
             looking_frames += 1
 
-
     cap.release()
-
 
     if total_frames == 0:
         return 0
 
-
-    eye_contact_score = int(
-        (looking_frames / total_frames) * 100
-    )
-
-
-    return eye_contact_score
+    return int((looking_frames / total_frames) * 100)

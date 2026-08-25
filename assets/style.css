@@ -1,128 +1,279 @@
-/* ===========================
-   PersonaMirror AI Theme
-=========================== */
+/* Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: "Inter", sans-serif;
+html, body, [class*="css"]{
+    font-family: "Poppins", sans-serif;
 }
 
-/* Main background */
-.stApp {
-    background: linear-gradient(135deg,#0F172A,#111827,#1E293B);
-    color: white;
+/* Background */
+.stApp{
+    background: linear-gradient(135deg,#07132d,#0b1f45,#102b63);
+    color:white;
 }
 
 /* Sidebar */
 section[data-testid="stSidebar"]{
-    background:#111827;
-    border-right:1px solid #2E3A59;
+    background:#08152e;
+    border-right:1px solid rgba(255,255,255,.08);
+}
+
+/* Cards */
+.metric-card{
+    background:rgba(255,255,255,.08);
+    backdrop-filter:blur(15px);
+    border-radius:18px;
+    padding:25px;
+    border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 8px 30px rgba(0,0,0,.25);
+}
+
+/* Buttons */
+.stButton>button{
+    width:100%;
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(90deg,#00c6ff,#0072ff);
+    color:white;
+    font-size:17px;
+    font-weight:600;
+    padding:14px;
+    transition:.3s;
+}
+
+.stButton>button:hover{
+    transform:translateY(-2px);
+    box-shadow:0 10px 25px rgba(0,114,255,.4);
+}
+
+/* Metric */
+[data-testid="metric-container"]{
+    background:rgba(255,255,255,.08);
+    border-radius:18px;
+    padding:20px;
+    border:1px solid rgba(255,255,255,.12);
 }
 
 /* Titles */
 h1{
-    color:white;
     font-size:42px;
-    font-weight:700;
+    font-weight:800;
 }
 
 h2,h3{
-    color:#F8FAFC;
+    color:#6ecbff;
+}
+/* =========================================================
+   PERSONAMIRROR AI — FOUNDER PAGE
+   ========================================================= */
+
+.founder-hero {
+    padding: 70px 50px;
+    margin-bottom: 35px;
+    text-align: center;
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(124,58,237,0.32), transparent 45%),
+        linear-gradient(135deg, #0b0620, #160b35 55%, #080611);
+    border: 1px solid rgba(139,92,246,0.35);
+    box-shadow: 0 25px 70px rgba(0,0,0,0.35);
 }
 
-/* Buttons */
+.founder-hero h1 {
+    font-size: 52px;
+    line-height: 1.08;
+    margin: 22px 0 18px;
+    font-weight: 800;
+}
 
-.stButton>button{
+.founder-tagline {
+    max-width: 760px;
+    margin: auto;
+    font-size: 19px;
+    line-height: 1.7;
+    color: #c8c4d8;
+}
 
-    width:100%;
-    border-radius:15px;
-    border:none;
+.founder-badge,
+.small-label {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #d8b4fe;
+    background: rgba(124,58,237,0.14);
+    border: 1px solid rgba(167,139,250,0.35);
+}
 
-    padding:15px;
-
-    background:linear-gradient(
-        90deg,
-        #7C3AED,
-        #06B6D4
+.founder-profile-card,
+.story-card,
+.vision-card,
+.feature-card,
+.tech-card,
+.founder-note {
+    padding: 30px;
+    border-radius: 22px;
+    background: linear-gradient(
+        145deg,
+        rgba(31,20,59,0.95),
+        rgba(13,10,27,0.95)
     );
-
-    color:white;
-
-    font-size:18px;
-
-    font-weight:600;
-
-    transition:0.3s;
+    border: 1px solid rgba(139,92,246,0.22);
+    box-shadow: 0 15px 45px rgba(0,0,0,0.18);
 }
 
-.stButton>button:hover{
-
-    transform:scale(1.03);
-
-    box-shadow:0 0 20px rgba(124,58,237,.6);
+.founder-profile-card h2 {
+    font-size: 36px;
+    margin: 12px 0 18px;
 }
 
-/* Metric cards */
-
-div[data-testid="metric-container"]{
-
-    background:#1E293B;
-
-    border-radius:20px;
-
-    padding:20px;
-
-    border:1px solid #334155;
-
-    box-shadow:0 10px 25px rgba(0,0,0,.35);
-
+.founder-profile-card p,
+.story-card,
+.vision-card p,
+.feature-card p,
+.tech-card p,
+.founder-note {
+    color: #c9c5d7;
+    line-height: 1.8;
 }
 
-/* Progress */
-
-.stProgress>div>div{
-
-    background:linear-gradient(
-        90deg,
-        #7C3AED,
-        #06B6D4
-    );
-
+.founder-quote {
+    margin-top: 25px;
+    padding: 18px 20px;
+    border-left: 3px solid #8b5cf6;
+    background: rgba(124,58,237,0.10);
+    color: #e9d5ff;
+    font-style: italic;
+    font-weight: 700;
 }
 
-/* File uploader */
-
-[data-testid="stFileUploader"]{
-
-    border:2px dashed #7C3AED;
-
-    border-radius:20px;
-
-    background:#111827;
-
-    padding:25px;
-
+.story-card {
+    font-size: 17px;
 }
 
-/* Success */
-
-.stSuccess{
-
-    border-radius:15px;
-
+.journey-card {
+    min-height: 270px;
+    padding: 25px 20px;
+    border-radius: 20px;
+    background: rgba(20,15,38,0.9);
+    border: 1px solid rgba(139,92,246,0.18);
+    transition: transform 0.25s ease, border-color 0.25s ease;
 }
 
-/* Warning */
-
-.stWarning{
-
-    border-radius:15px;
-
+.journey-card:hover,
+.feature-card:hover,
+.tech-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(167,139,250,0.55);
 }
 
-/* Info */
+.journey-icon,
+.feature-icon {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
 
-.stInfo{
+.journey-card h3,
+.feature-card h3,
+.tech-card h3 {
+    color: #f4f1ff;
+}
 
-    border-radius:15px;
+.journey-card p {
+    color: #aaa5bd;
+    line-height: 1.65;
+    font-size: 14px;
+}
 
+.vision-card {
+    min-height: 290px;
+}
+
+.vision-card.highlight {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(124,58,237,0.24),
+            transparent 55%
+        ),
+        rgba(25,17,48,0.95);
+}
+
+.feature-card {
+    min-height: 210px;
+    margin-bottom: 20px;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.feature-card p {
+    font-size: 14px;
+}
+
+.tech-card {
+    margin-bottom: 20px;
+    min-height: 140px;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.tech-card p {
+    font-size: 14px;
+}
+
+.vision-hero {
+    padding: 65px 45px;
+    text-align: center;
+    border-radius: 28px;
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(124,58,237,0.28),
+            transparent 60%
+        ),
+        linear-gradient(135deg, #0c071c, #1b0d38);
+    border: 1px solid rgba(139,92,246,0.35);
+}
+
+.vision-hero h1 {
+    font-size: 44px;
+    margin: 20px 0;
+}
+
+.vision-hero p {
+    max-width: 750px;
+    margin: 12px auto;
+    color: #c7c2d6;
+    line-height: 1.8;
+    font-size: 17px;
+}
+
+.founder-note {
+    max-width: 850px;
+    margin: auto;
+    text-align: center;
+    font-size: 18px;
+}
+
+.founder-final {
+    text-align: center;
+    padding: 55px 30px;
+    margin-top: 25px;
+    border-radius: 28px;
+    background:
+        radial-gradient(
+            circle at center,
+            rgba(124,58,237,0.32),
+            transparent 60%
+        );
+    border: 1px solid rgba(139,92,246,0.25);
+}
+
+.founder-final h2 {
+    font-size: 38px;
+    margin-bottom: 10px;
+}
+
+.founder-final p {
+    color: #bcb6cc;
+    font-size: 17px;
 }

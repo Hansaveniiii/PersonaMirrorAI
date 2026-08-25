@@ -1,0 +1,12 @@
+.venv/
+venv/
+ai311/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.env
+.env.*
+uploads/*.mp4
+reports/*.pdf
+.DS_Store

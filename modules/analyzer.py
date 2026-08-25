@@ -1,26 +1,113 @@
 import cv2
 
-from modules.eye_contact import analyze_eye_contact
-from modules.smile_detection import analyze_smile
-from modules.posture_detection import analyze_posture
-from modules.gesture_detection import analyze_gesture
 
+# =========================================================
+# PERSONAMIRROR AI
+# VISUAL ANALYSIS ENGINE
+# =========================================================
 
-def analyze_video(video_path):
+def analyze_video(
+    video_path,
+    analysis_type="General Speech"
+):
 
     cap = cv2.VideoCapture(video_path)
 
+    # -----------------------------------------------------
+    # Video unavailable
+    # -----------------------------------------------------
+
+    if not cap.isOpened():
+
+        return {
+            "analysis_type": analysis_type,
+            "frames": 0,
+            "faces": 0,
+            "visibility": None,
+            "face_visibility": None,
+            "brightness": None,
+            "face_centering": None,
+            "head_stability": None,
+            "engagement": None,
+            "eye_contact": None,
+            "smile": None,
+            "posture": None,
+            "gesture_score": None,
+
+            "vision_available": False,
+            "eye_contact_available": False,
+            "posture_available": False,
+            "gesture_available": False,
+
+            "face_detection_reliable": False,
+        }
+
+
+    # -----------------------------------------------------
+    # Face detector
+    # -----------------------------------------------------
+
     face_detector = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        cv2.data.haarcascades
+        + "haarcascade_frontalface_default.xml"
     )
 
+
+    if face_detector.empty():
+
+        cap.release()
+
+        return {
+            "analysis_type": analysis_type,
+            "frames": 0,
+            "faces": 0,
+            "visibility": None,
+            "face_visibility": None,
+            "brightness": None,
+
+            "face_centering": None,
+            "head_stability": None,
+            "engagement": None,
+            "eye_contact": None,
+            "smile": None,
+            "posture": None,
+            "gesture_score": None,
+
+            "vision_available": False,
+            "eye_contact_available": False,
+            "posture_available": False,
+            "gesture_available": False,
+
+            "face_detection_reliable": False,
+        }
+
+
+    # -----------------------------------------------------
+    # Sampling
+    #
+    # We process enough frames to get a meaningful estimate
+    # without analyzing every single frame.
+    # -----------------------------------------------------
+
+    sample_every = 8
+
+    max_process_frames = 300
+
+
     total_frames = 0
-    brightness = 0
-
     face_frames = 0
-    max_faces = 0
 
-    frame_count = 0
+    brightness_total = 0
+
+    face_sizes = []
+
+
+    frame_number = 0
+
+
+    # -----------------------------------------------------
+    # Process video
+    # -----------------------------------------------------
 
     while True:
 
@@ -29,110 +116,247 @@ def analyze_video(video_path):
         if not ret:
             break
 
-        frame_count += 1
 
-        # Process only every 5th frame (5x faster)
-        if frame_count % 5 != 0:
+        frame_number += 1
+
+
+        if frame_number % sample_every != 0:
             continue
 
-        total_frames += 1
 
-        # Resize frame for faster processing
-        frame = cv2.resize(frame, (640, 360))
+        if total_frames >= max_process_frames:
+            break
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        brightness += gray.mean()
+        # -------------------------------------------------
+        # Resize while preserving aspect ratio
+        # -------------------------------------------------
+
+        height, width = frame.shape[:2]
+
+        if width > 640:
+
+            scale = 640 / width
+
+            frame = cv2.resize(
+                frame,
+                (
+                    640,
+                    int(height * scale)
+                )
+            )
+
+
+        gray = cv2.cvtColor(
+            frame,
+            cv2.COLOR_BGR2GRAY
+        )
+
+
+        # Improve detection under uneven lighting
+        gray = cv2.equalizeHist(gray)
+
+
+        brightness_total += float(
+            gray.mean()
+        )
+
+
+        # -------------------------------------------------
+        # Multi-scale face detection
+        # -------------------------------------------------
 
         faces = face_detector.detectMultiScale(
             gray,
-            scaleFactor=1.2,
-            minNeighbors=4,
-            minSize=(40, 40)
+            scaleFactor=1.08,
+            minNeighbors=5,
+            minSize=(35, 35)
         )
 
-        if len(faces) > 0:
-            face_frames += 1
 
-        if len(faces) > max_faces:
-            max_faces = len(faces)
+        if len(faces) > 0:
+
+            # Choose the largest detected face.
+            # In a single-speaker recording this is usually
+            # the speaker's face.
+
+            largest_face = max(
+                faces,
+                key=lambda box: box[2] * box[3]
+            )
+
+
+            x, y, w, h = largest_face
+
+
+            face_area = w * h
+
+            frame_area = (
+                frame.shape[0]
+                * frame.shape[1]
+            )
+
+
+            face_ratio = (
+                face_area / frame_area
+            )
+
+
+            # Ignore extremely tiny detections.
+            if face_ratio >= 0.008:
+
+                face_frames += 1
+
+                face_sizes.append(
+                    face_ratio
+                )
+
+
+        total_frames += 1
+
 
     cap.release()
 
+
+    # -----------------------------------------------------
+    # No usable frames
+    # -----------------------------------------------------
+
     if total_frames == 0:
-        total_frames = 1
 
-    avg_brightness = brightness / total_frames
+        return {
+            "analysis_type": analysis_type,
+            "frames": 0,
+            "faces": 0,
 
-    visibility = int((face_frames / total_frames) * 100)
+            "visibility": None,
+            "face_visibility": None,
+            "brightness": None,
 
-    confidence = min(100, visibility + 10)
+            "face_centering": None,
+            "head_stability": None,
+            "engagement": None,
 
-    leadership = int((confidence + visibility) / 2)
+            "eye_contact": None,
+            "smile": None,
+            "posture": None,
+            "gesture_score": None,
 
-    # -----------------------------------------
-    # Additional AI Modules
-    # -----------------------------------------
+            "vision_available": False,
 
-    try:
-        eye = analyze_eye_contact(video_path)
-    except Exception:
-        eye = 0
+            "eye_contact_available": False,
+            "posture_available": False,
+            "gesture_available": False,
 
-    try:
-        smile = analyze_smile(video_path)
-    except Exception:
-        smile = {"smile": 0}
+            "face_detection_reliable": False,
+        }
 
-    try:
-        posture = analyze_posture(video_path)
-    except Exception:
-        posture = {"posture": 0}
 
-    try:
-        gesture = analyze_gesture(video_path)
-    except Exception:
-        gesture = {"gesture_score": 0}
+    # -----------------------------------------------------
+    # Face detection coverage
+    # -----------------------------------------------------
+
+    detection_ratio = (
+        face_frames / total_frames
+    )
+
+
+    # -----------------------------------------------------
+    # Reliability
+    #
+    # We only call the measurement reliable when there
+    # are enough detected frames.
+    # -----------------------------------------------------
+
+    if detection_ratio >= 0.60:
+
+        face_detection_reliable = True
+
+    elif detection_ratio >= 0.25:
+
+        face_detection_reliable = True
+
+    else:
+
+        face_detection_reliable = False
+
+
+    # -----------------------------------------------------
+    # Face visibility
+    #
+    # IMPORTANT:
+    #
+    # This represents detected-face coverage.
+    # It does NOT claim to measure audience eye contact.
+    # -----------------------------------------------------
+
+    if face_detection_reliable:
+
+        visibility = round(
+            detection_ratio * 100
+        )
+
+    else:
+
+        visibility = None
+
+
+    # -----------------------------------------------------
+    # Brightness
+    # -----------------------------------------------------
+
+    brightness = round(
+        brightness_total / total_frames
+    )
+
+
+    # -----------------------------------------------------
+    # Result
+    # -----------------------------------------------------
 
     return {
 
+        "analysis_type": analysis_type,
+
         "frames": total_frames,
 
-        "faces": max_faces,
-
-        "average_faces": max_faces,
+        "faces": face_frames,
 
         "visibility": visibility,
 
-        "confidence": confidence,
+        "face_visibility": visibility,
 
-        "leadership": leadership,
+        "brightness": brightness,
 
-        "eye_contact": eye,
 
-        "emotion": "Confident",
+        # -------------------------------------------------
+        # These require dedicated models and are therefore
+        # not fabricated here.
+        # -------------------------------------------------
 
-        "speech": 130,
+        "face_centering": None,
 
-        "brightness": round(avg_brightness),
+        "head_stability": None,
 
-        "voice_energy": 82,
+        "engagement": None,
 
-        "pause_score": 88,
+        "eye_contact": None,
 
-        "voice_confidence": 90,
+        "smile": None,
 
-        "posture": posture.get("posture", 0),
+        "posture": None,
 
-        "smile": smile.get("smile", 0),
+        "gesture_score": None,
 
-        "gesture_score": gesture.get("gesture_score", 0),
 
-        "interview_score": 92,
+        "vision_available": True,
 
-        "presentation_score": 90,
+        "eye_contact_available": False,
 
-        "executive_presence": 89,
+        "posture_available": False,
 
-        "transcript": "Speech transcription will be added in the next version."
+        "gesture_available": False,
+
+        "face_detection_reliable":
+            face_detection_reliable,
     }

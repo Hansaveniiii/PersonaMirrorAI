@@ -5,21 +5,100 @@ from modules.analysis_manager import load_results
 
 
 def safe_score(value):
-    """Return a valid numeric score or None."""
     if value is None:
         return None
 
     try:
         value = float(value)
+
         if 0 <= value <= 100:
             return value
+
     except (TypeError, ValueError):
         pass
 
     return None
 
 
-def gauge(title, value):
+def display_score(value):
+    value = safe_score(value)
+
+    if value is None:
+        return "Not measured"
+
+    return f"{value:g}%"
+
+
+def calculate_speech_stats(result):
+    """
+    Recover duration/WPM from transcript segments when the
+    speech-rate field is missing or incorrect.
+    """
+
+    words = result.get("transcript_word_count")
+
+    if words is None:
+        words = result.get("word_count")
+
+    try:
+        words = int(words or 0)
+    except (TypeError, ValueError):
+        words = 0
+
+    duration = result.get("duration")
+
+    try:
+        duration = float(duration or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+
+    segments = result.get("segments") or []
+
+    # Recover duration from actual transcription timestamps.
+    if duration <= 0 and segments:
+
+        ends = []
+
+        for segment in segments:
+
+            try:
+                end = float(segment.get("end", 0))
+
+                if end > 0:
+                    ends.append(end)
+
+            except (TypeError, ValueError):
+                pass
+
+        if ends:
+            duration = max(ends)
+
+    # Recover word count if necessary.
+    if words <= 0 and segments:
+
+        text = " ".join(
+            str(segment.get("text", ""))
+            for segment in segments
+        )
+
+        words = len(text.split())
+
+    # Calculate WPM from real duration.
+    if words > 0 and duration > 0:
+
+        wpm = round(
+            words / (duration / 60)
+        )
+
+    else:
+
+        wpm = None
+
+    return words, duration, wpm
+
+
+def make_gauge(title, value):
+
     value = safe_score(value)
 
     if value is None:
@@ -29,156 +108,281 @@ def gauge(title, value):
         go.Indicator(
             mode="gauge+number",
             value=value,
+            number={"suffix": "%"},
             title={"text": title},
             gauge={
-                "axis": {"range": [0, 100]},
-                "bar": {"color": "#7C3AED"},
+                "axis": {
+                    "range": [0, 100]
+                },
+                "bar": {
+                    "color": "#7C3AED"
+                },
                 "steps": [
-                    {"range": [0, 40], "color": "#2E2E2E"},
-                    {"range": [40, 70], "color": "#444444"},
-                    {"range": [70, 100], "color": "#666666"},
+                    {
+                        "range": [0, 40],
+                        "color": "#252035"
+                    },
+                    {
+                        "range": [40, 70],
+                        "color": "#33294A"
+                    },
+                    {
+                        "range": [70, 100],
+                        "color": "#463568"
+                    },
                 ],
             },
         )
     )
 
     fig.update_layout(
-        height=250,
-        margin=dict(l=10, r=10, t=55, b=10),
+        height=280,
+        margin=dict(
+            l=10,
+            r=10,
+            t=60,
+            b=10,
+        ),
     )
 
     return fig
 
 
-def metric_display(value, suffix="%"):
-    value = safe_score(value)
-
-    if value is None:
-        return "Not measured"
-
-    if suffix:
-        return f"{value:g}{suffix}"
-
-    return f"{value:g}"
-
-
 def show():
 
     st.title("📊 PersonaMirror AI Dashboard")
-    st.caption("Your communication performance at a glance")
+    st.caption(
+        "Your communication performance at a glance"
+    )
 
     # =========================================================
     # LOAD PERSISTED ANALYSIS
-    # IMPORTANT:
-    # Do NOT depend on Streamlit session_state.
     # =========================================================
 
     result = load_results()
 
     if not isinstance(result, dict):
-        st.warning("🎥 Upload and analyze a video first.")
-        return
 
-    if not result.get("analysis_ready", False):
-        st.warning("🎥 Upload and analyze a video first.")
-        return
-
-    # =========================================================
-    # CORE SCORES
-    # =========================================================
-
-    confidence = safe_score(result.get("confidence"))
-    leadership = safe_score(result.get("leadership"))
-    voice_confidence = safe_score(result.get("voice_confidence"))
-    presentation = safe_score(result.get("presentation_score"))
-    executive = safe_score(result.get("executive_presence"))
-    speech_quality = safe_score(result.get("speech_quality"))
-    structure = safe_score(result.get("structure_score"))
-    clarity = safe_score(result.get("clarity"))
-    repetition = safe_score(result.get("repetition_score"))
-    overall = safe_score(result.get("overall_score"))
-
-    # =========================================================
-    # HERO SCORE
-    # =========================================================
-
-    if overall is not None:
-        st.metric(
-            "🏆 Overall PersonaMirror Score",
-            f"{overall:g}/100",
+        st.warning(
+            "🎥 Upload and analyze a video first."
         )
 
-    st.success("✅ Analysis loaded successfully")
+        return
+
+    if not result.get(
+        "analysis_ready",
+        False
+    ):
+
+        st.warning(
+            "🎥 Upload and analyze a video first."
+        )
+
+        return
 
     # =========================================================
-    # PRIMARY PERFORMANCE
+    # READ REAL STORED SCORES
     # =========================================================
 
-    st.subheader("🎯 Core Performance")
+    confidence = safe_score(
+        result.get("confidence")
+    )
+
+    leadership = safe_score(
+        result.get("leadership")
+    )
+
+    voice_confidence = safe_score(
+        result.get("voice_confidence")
+    )
+
+    presentation = safe_score(
+        result.get("presentation_score")
+    )
+
+    executive = safe_score(
+        result.get("executive_presence")
+    )
+
+    speech_quality = safe_score(
+        result.get("speech_quality")
+    )
+
+    structure = safe_score(
+        result.get("structure_score")
+    )
+
+    clarity = safe_score(
+        result.get("clarity")
+    )
+
+    repetition = safe_score(
+        result.get("repetition_score")
+    )
+
+    overall = safe_score(
+        result.get("overall_score")
+    )
+
+    # =========================================================
+    # SPEECH STATS
+    # =========================================================
+
+    words, duration, wpm = calculate_speech_stats(
+        result
+    )
+
+    # =========================================================
+    # HERO
+    # =========================================================
+
+    st.success(
+        "✅ Analysis loaded successfully"
+    )
+
+    if overall is not None:
+
+        st.metric(
+            "🏆 Overall PersonaMirror Score",
+            f"{overall:g}/100"
+        )
+
+    else:
+
+        st.metric(
+            "🏆 Overall PersonaMirror Score",
+            "Not measured"
+        )
+
+    # =========================================================
+    # CORE PERFORMANCE
+    # =========================================================
+
+    st.subheader(
+        "🎯 Core Performance"
+    )
 
     cols = st.columns(4)
 
     cards = [
-        ("⭐ Confidence", confidence),
-        ("👑 Leadership", leadership),
-        ("🎤 Voice Confidence", voice_confidence),
-        ("🎥 Presentation", presentation),
+        (
+            "⭐ Confidence",
+            confidence
+        ),
+        (
+            "👑 Leadership",
+            leadership
+        ),
+        (
+            "🎤 Voice Confidence",
+            voice_confidence
+        ),
+        (
+            "🎥 Presentation",
+            presentation
+        ),
     ]
 
-    for col, (title, value) in zip(cols, cards):
+    for col, (title, value) in zip(
+        cols,
+        cards
+    ):
+
         with col:
-            if value is not None:
-                st.metric(title, f"{value:g}%")
-            else:
-                st.metric(title, "Not measured")
+
+            st.metric(
+                title,
+                display_score(value)
+            )
 
     # =========================================================
-    # EXECUTIVE PRESENCE
+    # SECONDARY PERFORMANCE
     # =========================================================
 
     cols = st.columns(4)
 
     cards = [
-        ("💼 Executive Presence", executive),
-        ("🗣 Speech Quality", speech_quality),
-        ("🧠 Structure", structure),
-        ("✨ Clarity", clarity),
+        (
+            "💼 Executive Presence",
+            executive
+        ),
+        (
+            "🗣 Speech Quality",
+            speech_quality
+        ),
+        (
+            "🧠 Structure",
+            structure
+        ),
+        (
+            "✨ Clarity",
+            clarity
+        ),
     ]
 
-    for col, (title, value) in zip(cols, cards):
+    for col, (title, value) in zip(
+        cols,
+        cards
+    ):
+
         with col:
-            if value is not None:
-                st.metric(title, f"{value:g}%")
-            else:
-                st.metric(title, "Not measured")
+
+            st.metric(
+                title,
+                display_score(value)
+            )
+
+    # =========================================================
+    # PERFORMANCE SIGNALS
+    # =========================================================
 
     st.divider()
 
-    # =========================================================
-    # GAUGES
-    # =========================================================
-
-    st.subheader("📈 Performance Signals")
+    st.subheader(
+        "📈 Performance Signals"
+    )
 
     gauge_data = [
-        ("Confidence", confidence),
-        ("Leadership", leadership),
-        ("Voice Confidence", voice_confidence),
+        (
+            "Confidence",
+            confidence
+        ),
+        (
+            "Leadership",
+            leadership
+        ),
+        (
+            "Voice Confidence",
+            voice_confidence
+        ),
     ]
 
     gauge_cols = st.columns(3)
 
-    for col, (title, value) in zip(gauge_cols, gauge_data):
+    for col, (title, value) in zip(
+        gauge_cols,
+        gauge_data
+    ):
+
         with col:
-            fig = gauge(title, value)
+
+            fig = make_gauge(
+                title,
+                value
+            )
 
             if fig is not None:
+
                 st.plotly_chart(
                     fig,
-                    use_container_width=True,
+                    use_container_width=True
                 )
+
             else:
-                st.info(f"{title}: Not measured")
+
+                st.info(
+                    f"{title}: Not measured"
+                )
 
     # =========================================================
     # COMMUNICATION PROFILE
@@ -186,48 +390,65 @@ def show():
 
     st.divider()
 
-    st.subheader("🧠 Communication Profile")
+    st.subheader(
+        "🧠 Communication Profile"
+    )
 
-    radar_names = [
-        "Confidence",
-        "Leadership",
-        "Voice",
-        "Presentation",
-        "Structure",
-        "Clarity",
+    radar_data = [
+        (
+            "Confidence",
+            confidence
+        ),
+        (
+            "Leadership",
+            leadership
+        ),
+        (
+            "Voice",
+            voice_confidence
+        ),
+        (
+            "Presentation",
+            presentation
+        ),
+        (
+            "Structure",
+            structure
+        ),
+        (
+            "Clarity",
+            clarity
+        ),
     ]
 
-    radar_values = [
-        confidence,
-        leadership,
-        voice_confidence,
-        presentation,
-        structure,
-        clarity,
+    valid = [
+        item
+        for item in radar_data
+        if item[1] is not None
     ]
 
-    valid_radar = [
-        (name, value)
-        for name, value in zip(radar_names, radar_values)
-        if value is not None
-    ]
+    if len(valid) >= 3:
 
-    if len(valid_radar) >= 3:
+        names = [
+            item[0]
+            for item in valid
+        ]
 
-        names = [x[0] for x in valid_radar]
-        values = [x[1] for x in valid_radar]
-
-        names_closed = names + [names[0]]
-        values_closed = values + [values[0]]
+        values = [
+            item[1]
+            for item in valid
+        ]
 
         radar = go.Figure()
 
         radar.add_trace(
             go.Scatterpolar(
-                r=values_closed,
-                theta=names_closed,
+                r=values + [values[0]],
+                theta=names + [names[0]],
                 fill="toself",
-                line=dict(color="#7C3AED"),
+                line=dict(
+                    color="#7C3AED"
+                ),
                 name="Performance",
             )
         )
@@ -245,76 +466,123 @@ def show():
 
         st.plotly_chart(
             radar,
-            use_container_width=True,
+            use_container_width=True
         )
 
     else:
-        st.info("Not enough measured signals for the communication profile.")
+
+        st.info(
+            "Not enough measured signals for the communication profile."
+        )
 
     # =========================================================
-    # SPEECH DETAILS
+    # SPEECH INTELLIGENCE
     # =========================================================
 
     st.divider()
 
-    st.subheader("🗣 Speech Intelligence")
+    st.subheader(
+        "🗣 Speech Intelligence"
+    )
 
-    speech = result.get("speech")
-    duration = result.get("duration")
-    word_count = result.get("word_count")
-    filler_count = result.get("filler_count")
+    c1, c2, c3, c4 = st.columns(4)
 
-    cols = st.columns(4)
+    with c1:
 
-    with cols[0]:
-        st.metric(
-            "Speaking Rate",
-            f"{speech:g} WPM" if isinstance(speech, (int, float)) else "Not measured",
-        )
+        if wpm is not None:
 
-    with cols[1]:
-        st.metric(
-            "⏱ Duration",
-            f"{float(duration):.1f}s"
-            if isinstance(duration, (int, float))
-            else "Not measured",
-        )
+            st.metric(
+                "Speaking Rate",
+                f"{wpm} WPM"
+            )
 
-    with cols[2]:
+        else:
+
+            st.metric(
+                "Speaking Rate",
+                "Not measured"
+            )
+
+    with c2:
+
+        if duration > 0:
+
+            minutes = int(duration // 60)
+            seconds = int(duration % 60)
+
+            st.metric(
+                "⏱ Duration",
+                f"{minutes}:{seconds:02d}"
+            )
+
+        else:
+
+            st.metric(
+                "⏱ Duration",
+                "Not measured"
+            )
+
+    with c3:
+
         st.metric(
             "📝 Words",
-            str(word_count)
-            if word_count is not None
-            else "Not measured",
+            words if words > 0 else "Not measured"
         )
 
-    with cols[3]:
-        st.metric(
-            "🚫 Fillers",
-            str(filler_count)
-            if filler_count is not None
-            else "Not measured",
+    with c4:
+
+        filler_count = result.get(
+            "filler_count"
         )
 
+        if filler_count is not None:
+
+            st.metric(
+                "🚫 Fillers",
+                filler_count
+            )
+
+        else:
+
+            st.metric(
+                "🚫 Fillers",
+                "Not measured"
+            )
+
     # =========================================================
-    # REPEATED WORDS
+    # REPETITION
     # =========================================================
 
-    repeated_words = result.get("repeated_words", {})
+    st.divider()
+
+    st.subheader(
+        "🔁 Repetition Intelligence"
+    )
+
+    repeated_words = result.get(
+        "repeated_words",
+        {}
+    )
 
     if repeated_words:
 
-        st.subheader("🔁 Repetition Intelligence")
-
-        for word, count in sorted(
+        sorted_words = sorted(
             repeated_words.items(),
-            key=lambda item: item[1],
-            reverse=True,
-        )[:5]:
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        for word, count in sorted_words[:5]:
 
             st.write(
                 f"**{word}** — {count} times"
             )
+
+    else:
+
+        st.info(
+            "No significant repeated words detected."
+        )
 
     # =========================================================
     # AI FEEDBACK
@@ -322,51 +590,129 @@ def show():
 
     st.divider()
 
-    st.subheader("🤖 PersonaMirror AI Feedback")
+    st.subheader(
+        "🤖 PersonaMirror AI Feedback"
+    )
 
-    feedback = result.get("feedback", {})
+    feedback = result.get(
+        "feedback",
+        {}
+    )
 
-    if isinstance(feedback, dict):
+    strengths = feedback.get(
+        "strengths",
+        []
+    )
 
-        strengths = feedback.get("strengths", [])
-        improvements = feedback.get("improvements", [])
-        suggestions = feedback.get("suggestions", [])
+    improvements = feedback.get(
+        "improvements",
+        []
+    )
 
-        if strengths:
-            st.markdown("### 💪 Strengths")
+    suggestions = feedback.get(
+        "suggestions",
+        []
+    )
 
-            for item in strengths:
-                st.success(f"✓ {item}")
+    # ---------------------------------------------------------
+    # Strengths
+    # ---------------------------------------------------------
 
-        if improvements:
-            st.markdown("### ⚠️ Improvement Areas")
+    st.markdown(
+        "### 💪 Strengths"
+    )
 
-            for item in improvements:
-                st.warning(f"→ {item}")
+    if strengths:
 
-        if suggestions:
-            st.markdown("### 🎯 Personalized Recommendations")
+        for item in strengths:
 
-            for index, item in enumerate(
-                suggestions,
-                start=1,
-            ):
-                st.info(f"**{index}.** {item}")
+            st.write(
+                f"✓ {item}"
+            )
+
+    else:
+
+        st.info(
+            "No strengths recorded."
+        )
+
+    # ---------------------------------------------------------
+    # Improvements
+    # ---------------------------------------------------------
+
+    st.markdown(
+        "### ⚠️ Improvement Areas"
+    )
+
+    if improvements:
+
+        for item in improvements:
+
+            st.write(
+                f"→ {item}"
+            )
+
+    else:
+
+        st.info(
+            "No major weakness was identified from the measured signals."
+        )
+
+    # ---------------------------------------------------------
+    # Suggestions
+    # ---------------------------------------------------------
+
+    st.markdown(
+        "### 🎯 Personalized Recommendations"
+    )
+
+    if suggestions:
+
+        for index, item in enumerate(
+            suggestions,
+            start=1
+        ):
+
+            st.write(
+                f"**{index}.** {item}"
+            )
+
+    else:
+
+        st.info(
+            "No additional recommendations available."
+        )
 
     # =========================================================
     # TRANSCRIPT
     # =========================================================
 
-    transcript = result.get("transcript", "")
+    st.divider()
+
+    st.subheader(
+        "📝 Speech Transcript"
+    )
+
+    transcript = result.get(
+        "transcript",
+        ""
+    )
 
     if transcript:
 
-        st.divider()
+        with st.expander(
+            "View full transcript"
+        ):
 
-        st.subheader("📝 Speech Transcript")
+            st.write(
+                transcript
+            )
 
-        with st.expander("View full transcript"):
-            st.write(transcript)
+    else:
+
+        st.info(
+            "Transcript not available."
+        )
 
     # =========================================================
     # GROWTH LOOP
@@ -374,13 +720,16 @@ def show():
 
     st.divider()
 
+    st.subheader(
+        "🌱 PersonaMirror Growth Loop"
+    )
+
     st.markdown(
         """
-        ### 🌱 PersonaMirror Growth Loop
-
         **Analyze → Understand → Practice → Re-analyze → Improve**
 
-        Your current analysis is a baseline.  
-        The goal is not simply to get a high score — it is to become a stronger communicator over time.
+        Your current analysis is a baseline.
+        The goal is not simply to get a high score —
+        it is to become a stronger communicator over time.
         """
     )

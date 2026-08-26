@@ -1,4 +1,10 @@
-import cv2
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except Exception as e:
+    cv2 = None
+    CV2_AVAILABLE = False
+    CV2_ERROR = str(e)
 
 
 # =========================================================
@@ -10,6 +16,29 @@ def analyze_video(
     video_path,
     analysis_type="General Speech"
 ):
+
+    if not CV2_AVAILABLE:
+        return {
+            "analysis_type": analysis_type,
+            "frames": 0,
+            "faces": 0,
+            "visibility": None,
+            "face_visibility": None,
+            "brightness": None,
+            "face_centering": None,
+            "head_stability": None,
+            "engagement": None,
+            "eye_contact": None,
+            "smile": None,
+            "posture": None,
+            "gesture_score": None,
+            "vision_available": False,
+            "eye_contact_available": False,
+            "posture_available": False,
+            "gesture_available": False,
+            "face_detection_reliable": False,
+            "vision_error": CV2_ERROR,
+        }
 
     cap = cv2.VideoCapture(video_path)
 

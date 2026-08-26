@@ -161,6 +161,21 @@ def show():
 
     result = load_results()
 
+    # Never display stale/incomplete measurements as real analysis.
+    if isinstance(result, dict):
+        if result.get("duration") in (0, 0.0, "0", "0.0"):
+            result["duration"] = None
+
+        if result.get("word_count") in (None, 0):
+            result["word_count"] = result.get("transcript_word_count", 0)
+
+        if result.get("speech") in (None, 0):
+            words = result.get("word_count", 0)
+            duration = result.get("duration")
+            if words and duration and duration > 0:
+                result["speech"] = round((words / duration) * 60, 1)
+
+
     if not isinstance(result, dict):
 
         st.warning(

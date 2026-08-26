@@ -11,7 +11,6 @@ tensorflow==2.15.1
 tensorflow-estimator==2.15.0
 tensorflow-io-gcs-filesystem==0.37.1
 tf-keras==2.15.0
-mediapipe==0.10.21
 ml-dtypes==0.3.2
 jax==0.4.23
 jaxlib==0.4.23

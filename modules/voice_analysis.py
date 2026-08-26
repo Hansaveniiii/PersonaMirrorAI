@@ -8,18 +8,21 @@ import numpy as np
 
 def extract_audio(video_path, audio_path):
     """
-    Extract audio from video using FFmpeg.
-    This replaces MoviePy and is considerably more reliable.
+    Extract mono 16 kHz PCM audio from the uploaded video.
     """
 
     command = [
         "ffmpeg",
         "-y",
-        "-i", video_path,
+        "-i",
+        video_path,
         "-vn",
-        "-ac", "1",
-        "-ar", "16000",
-        "-acodec", "pcm_s16le",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-acodec",
+        "pcm_s16le",
         audio_path,
     ]
 
@@ -32,8 +35,30 @@ def extract_audio(video_path, audio_path):
 
     if result.returncode != 0:
         raise RuntimeError(
-            "FFmpeg audio extraction failed."
+            "FFmpeg audio extraction failed: "
+            + result.stderr[-1000:]
         )
+
+
+def _unavailable_result(message):
+    """
+    Return None for unavailable measurements.
+
+    IMPORTANT:
+    None means the metric could not be measured.
+    It must NOT become 0, because 0 means genuinely
+    extremely poor performance.
+    """
+
+    return {
+        "voice_energy": None,
+        "pause_score": None,
+        "voice_confidence": None,
+        "duration": None,
+        "speech_rate": None,
+        "pace_feedback": message,
+        "voice_analysis_available": False,
+    }
 
 
 def analyze_voice(video_path):
@@ -43,25 +68,39 @@ def analyze_voice(video_path):
     try:
 
         # -------------------------------------------------
-        # Create temporary audio file
+        # Validate input
+        # -------------------------------------------------
+
+        if not video_path or not os.path.exists(video_path):
+            return _unavailable_result(
+                "Voice analysis unavailable: video file not found."
+            )
+
+        # -------------------------------------------------
+        # Temporary WAV
         # -------------------------------------------------
 
         temp = tempfile.NamedTemporaryFile(
             suffix=".wav",
-            delete=False
+            delete=False,
         )
 
         audio_file = temp.name
         temp.close()
 
         # -------------------------------------------------
-        # Extract audio using FFmpeg
+        # Extract audio
         # -------------------------------------------------
 
         extract_audio(
             video_path,
-            audio_file
+            audio_file,
         )
+
+        if not os.path.exists(audio_file):
+            raise RuntimeError(
+                "FFmpeg did not create the audio file."
+            )
 
         # -------------------------------------------------
         # Load audio
@@ -70,49 +109,96 @@ def analyze_voice(video_path):
         y, sr = librosa.load(
             audio_file,
             sr=16000,
-            mono=True
+            mono=True,
         )
 
         if y is None or len(y) == 0:
+            return _unavailable_result(
+                "No usable audio was detected."
+            )
 
-            return {
-                "voice_energy": 0,
-                "pause_score": 0,
-                "voice_confidence": 0,
-                "duration": 0,
-                "speech_rate": 0,
-                "pace_feedback": "No audio detected."
-            }
+        y = np.asarray(y, dtype=np.float32)
 
-        # -------------------------------------------------
-        # Duration
-        # -------------------------------------------------
+        # Remove NaN / infinity safely
+        y = np.nan_to_num(
+            y,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
+        )
 
-        duration = len(y) / sr
+        duration = len(y) / float(sr)
 
         if duration <= 0:
-            duration = 1
+            return _unavailable_result(
+                "Audio duration could not be measured."
+            )
 
         # -------------------------------------------------
-        # VOICE ENERGY
+        # Remove DC offset
+        # -------------------------------------------------
+
+        y = y - np.mean(y)
+
+        # -------------------------------------------------
+        # RMS ENERGY
         # -------------------------------------------------
 
         rms = librosa.feature.rms(
             y=y,
             frame_length=2048,
-            hop_length=512
+            hop_length=512,
         )[0]
 
-        energy = float(
-            np.mean(rms)
+        rms = np.nan_to_num(
+            rms,
+            nan=0.0,
+            posinf=0.0,
+            neginf=0.0,
         )
 
-        # Normalize energy more gently.
+        # Only non-silent frames should influence
+        # vocal-energy estimation.
+
+        non_silent_rms = rms[rms > 0.003]
+
+        if len(non_silent_rms) == 0:
+            return _unavailable_result(
+                "No clear spoken audio was detected."
+            )
+
+        median_rms = float(
+            np.median(non_silent_rms)
+        )
+
+        # -------------------------------------------------
+        # ROBUST VOICE ENERGY NORMALIZATION
+        #
+        # RMS is typically much smaller than 1.
+        # Convert to a dB-like scale instead of using
+        # energy * 1800, which is highly recording-dependent.
+        # -------------------------------------------------
+
+        db = 20.0 * np.log10(
+            max(median_rms, 1e-6)
+        )
+
+        # Typical speech recordings roughly occupy
+        # this practical range.
+        #
+        # -45 dB -> 0
+        # -15 dB -> 100
+
+        voice_energy = (
+            (db + 45.0)
+            / 30.0
+        ) * 100.0
+
         voice_energy = int(
             np.clip(
-                energy * 1800,
+                voice_energy,
                 0,
-                100
+                100,
             )
         )
 
@@ -122,20 +208,23 @@ def analyze_voice(video_path):
 
         intervals = librosa.effects.split(
             y,
-            top_db=30
+            top_db=30,
         )
 
-        active_duration = 0
+        active_duration = 0.0
 
         for start, end in intervals:
 
             active_duration += (
                 end - start
-            ) / sr
+            ) / float(sr)
 
-        active_duration = min(
-            active_duration,
-            duration
+        active_duration = float(
+            np.clip(
+                active_duration,
+                0,
+                duration,
+            )
         )
 
         pause_ratio = (
@@ -146,15 +235,12 @@ def analyze_voice(video_path):
             np.clip(
                 pause_ratio,
                 0,
-                1
+                1,
             )
         )
 
         # -------------------------------------------------
         # PAUSE SCORE
-        #
-        # A speech should NOT be punished for
-        # having natural pauses.
         # -------------------------------------------------
 
         if 0.08 <= pause_ratio <= 0.35:
@@ -185,79 +271,50 @@ def analyze_voice(video_path):
                     pause_score * 0.45
                 ),
                 0,
-                100
+                100,
             )
         )
 
         # -------------------------------------------------
-        # IMPORTANT
+        # SPEECH RATE
         #
-        # We do NOT pretend that audio duration itself
-        # tells us speaking speed.
-        #
-        # Actual WPM should come from Whisper.
+        # Actual WPM comes from transcription.
+        # Do not invent it here.
         # -------------------------------------------------
 
-        speech_rate = 0
+        speech_rate = None
 
-        # -------------------------------------------------
-        # PACE FEEDBACK
-        # -------------------------------------------------
-
-        pace = (
-            "Your vocal pacing can be evaluated "
-            "from the transcription and timing analysis."
+        pace_feedback = (
+            "Your vocal pacing is evaluated using "
+            "transcription timing."
         )
 
         return {
-
             "voice_energy": voice_energy,
-
             "pause_score": pause_score,
-
             "voice_confidence": voice_confidence,
-
-            "duration": round(
-                duration,
-                1
-            ),
-
+            "duration": round(duration, 1),
             "speech_rate": speech_rate,
-
-            "pace_feedback": pace
-
+            "pace_feedback": pace_feedback,
+            "voice_analysis_available": True,
         }
 
     except Exception as e:
 
         print(
-            "Voice analysis error:",
-            e
+            "VOICE ANALYSIS ERROR:",
+            repr(e),
         )
 
-        return {
-
-            "voice_energy": 0,
-
-            "pause_score": 0,
-
-            "voice_confidence": 0,
-
-            "duration": 0,
-
-            "speech_rate": 0,
-
-            "pace_feedback":
-                "Voice analysis unavailable."
-
-        }
+        return _unavailable_result(
+            "Voice analysis unavailable."
+        )
 
     finally:
 
         if (
             audio_file
-            and
-            os.path.exists(audio_file)
+            and os.path.exists(audio_file)
         ):
 
             try:

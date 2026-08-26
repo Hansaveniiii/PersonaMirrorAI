@@ -1,8 +1,5 @@
 import sys
 
-from modules import eye_contact
-print(sys.executable)
-
 import os
 import streamlit as st
 from streamlit_option_menu import option_menu

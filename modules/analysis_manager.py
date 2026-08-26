@@ -11,10 +11,20 @@ def save_results(result):
     Only the latest analysis is stored.
     """
 
+    if not isinstance(result, dict):
+        raise ValueError("Analysis result must be a dictionary.")
+
     os.makedirs("data", exist_ok=True)
 
+    result["analysis_ready"] = True
+
     with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=4)
+        json.dump(
+            result,
+            f,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def clear_results():

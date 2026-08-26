@@ -363,6 +363,8 @@ def analyze_complete_video(
     # 10. COMPLETE
     # =========================================================
 
+    result["analysis_ready"] = True
+
     print(
         "STEP 9: Analysis completed"
     )

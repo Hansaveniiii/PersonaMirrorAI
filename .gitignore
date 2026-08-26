@@ -19,3 +19,5 @@ requirements-backup-before-fix.txt
 requirements-backup.txt
 requirements-before-dependency-fix.txt
 requirements-working.txt
+
+data/analysis.json

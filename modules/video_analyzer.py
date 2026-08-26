@@ -195,28 +195,16 @@ def analyze_video(video_path):
             0
         ),
 
-        "interview_score": int(
-            (
-                confidence
-                + eye_contact
-                + posture.get("posture", 0)
-                + smile.get("smile", 0)
-            ) / 4
-        ),
+        # Scores are calculated centrally by analysis_pipeline.py
+        # using modules/ai_engine.py. Do not calculate them here.
+        # Keeping them out of this low-level analyzer prevents
+        # unavailable visual metrics from becoming artificial zeros.
 
-        "presentation_score": int(
-            (
-                confidence
-                + posture.get("posture", 0)
-            ) / 2
-        ),
+        "interview_score": None,
 
-        "executive_presence": int(
-            (
-                leadership
-                + confidence
-            ) / 2
-        ),
+        "presentation_score": None,
+
+        "executive_presence": None,
 
         "transcript": ""
     }

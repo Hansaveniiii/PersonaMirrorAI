@@ -13,7 +13,7 @@ tf-keras==2.15.0
 
 mediapipe==0.10.21
 numpy==1.26.4
-protobuf==4.25.9
+protobuf==5.29.5
 ml-dtypes==0.3.2
 jax==0.4.23
 jaxlib==0.4.23

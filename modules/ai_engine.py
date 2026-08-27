@@ -1,63 +1,262 @@
-def clamp(value, default=None):
-    """
-    Keep a score between 0 and 100.
+# =========================================================
+# PERSONAMIRROR AI
+# REAL COMMUNICATION SCORE ENGINE
+# =========================================================
+#
+# PRINCIPLE:
+#
+# VIDEO
+#   ↓
+# PRIMARY MEASUREMENTS
+#   ↓
+# INDIVIDUAL DIMENSION SCORES
+#   ↓
+# OVERALL SCORE
+#
+# No score is calculated from another score.
+# =========================================================
 
-    None means the measurement is unavailable.
-    We do NOT convert unavailable measurements into 0.
-    """
+import math
+
+
+# =========================================================
+# BASIC UTILITIES
+# =========================================================
+
+def clamp(value, default=None):
 
     if value is None:
         return default
 
     try:
-        return max(0, min(100, round(float(value))))
+        value = float(value)
+
+        if math.isnan(value):
+            return default
+
+        return max(
+            0,
+            min(
+                100,
+                round(value)
+            )
+        )
+
     except (TypeError, ValueError):
         return default
 
 
-def available(result, key):
-    """
-    Return True only when a metric is genuinely available.
-    """
+def get_value(result, key):
 
     value = result.get(key)
 
-    return value is not None
+    if value is None:
+        return None
+
+    try:
+
+        value = float(value)
+
+        if math.isnan(value):
+            return None
+
+        if value < 0 or value > 100:
+            return None
+
+        return value
+
+    except (TypeError, ValueError):
+
+        return None
 
 
-def weighted_score(result, weights):
-    """
-    Calculate a weighted score using ONLY measurements
-    that are actually available.
+def weighted_average(values):
 
-    This prevents unavailable metrics from unfairly
-    dragging the user's score down to zero.
-    """
+    valid = [
+        (float(value), float(weight))
+        for value, weight in values
+        if value is not None
+        and weight > 0
+    ]
 
-    total = 0
-    weight_total = 0
+    if not valid:
+        return None
 
-    for key, weight in weights.items():
+    total_weight = sum(
+        weight
+        for _, weight in valid
+    )
 
-        value = result.get(key)
+    if total_weight <= 0:
+        return None
 
-        if value is None:
-            continue
+    total = sum(
+        value * weight
+        for value, weight in valid
+    )
+
+    return clamp(
+        total / total_weight
+    )
+
+
+# =========================================================
+# PACE
+# =========================================================
+
+def calculate_pace_score(result):
+
+    wpm = result.get("speech")
+
+    try:
+        wpm = float(wpm)
+    except (TypeError, ValueError):
+        return None
+
+    if wpm <= 0:
+        return None
+
+    if wpm < 80:
+        return 45
+
+    if wpm < 95:
+        return 65
+
+    if wpm < 105:
+        return 78
+
+    if wpm <= 145:
+        return 95
+
+    if wpm <= 160:
+        return 85
+
+    if wpm <= 180:
+        return 68
+
+    return 50
+
+
+# =========================================================
+# REPETITION QUALITY
+#
+# PRIMARY SOURCE:
+# repeated_words
+#
+# We intentionally calculate this ourselves rather than
+# trusting an older AI-generated repetition_score.
+# =========================================================
+
+def calculate_repetition_quality(result):
+
+    repeated = result.get(
+        "repeated_words",
+        {}
+    )
+
+    if not isinstance(repeated, dict):
+        return None
+
+    if not repeated:
+        return 98
+
+    total_repetitions = 0
+    repeated_word_types = 0
+    maximum_frequency = 0
+
+    for word, frequency in repeated.items():
 
         try:
-            value = float(value)
+            frequency = int(frequency)
         except (TypeError, ValueError):
             continue
 
-        value = max(0, min(100, value))
+        if frequency < 2:
+            continue
 
-        total += value * weight
-        weight_total += weight
+        repeated_word_types += 1
 
-    if weight_total == 0:
+        total_repetitions += max(
+            0,
+            frequency - 1
+        )
+
+        maximum_frequency = max(
+            maximum_frequency,
+            frequency
+        )
+
+    if repeated_word_types == 0:
+        return 98
+
+    penalty = (
+        repeated_word_types * 5
+    )
+
+    penalty += (
+        total_repetitions * 2
+    )
+
+    if maximum_frequency >= 10:
+        penalty += 15
+
+    elif maximum_frequency >= 7:
+        penalty += 10
+
+    elif maximum_frequency >= 5:
+        penalty += 5
+
+    return clamp(
+        100 - penalty
+    )
+
+
+# =========================================================
+# FILLER CONTROL
+# =========================================================
+
+def calculate_filler_quality(result):
+
+    words = result.get(
+        "word_count"
+    )
+
+    fillers = result.get(
+        "filler_count"
+    )
+
+    try:
+
+        words = float(words)
+        fillers = float(fillers)
+
+    except (TypeError, ValueError):
+
         return None
 
-    return clamp(total / weight_total)
+    if words <= 0:
+        return None
+
+    ratio = (
+        fillers / words
+    ) * 100
+
+    if ratio == 0:
+        return 100
+
+    if ratio <= 1:
+        return 95
+
+    if ratio <= 2:
+        return 88
+
+    if ratio <= 4:
+        return 78
+
+    if ratio <= 6:
+        return 65
+
+    return 50
 
 
 # =========================================================
@@ -66,16 +265,67 @@ def weighted_score(result, weights):
 
 def calculate_confidence(result):
 
-    return weighted_score(
+    values = []
+
+    voice_confidence = get_value(
         result,
-        {
-            "voice_confidence": 0.35,
-            "voice_energy": 0.20,
-            "pause_score": 0.15,
-            "speech_quality": 0.15,
-            "clarity": 0.15,
-        }
+        "voice_confidence"
     )
+
+    if voice_confidence is not None:
+        values.append(
+            (voice_confidence, 0.35)
+        )
+
+    voice_energy = get_value(
+        result,
+        "voice_energy"
+    )
+
+    if voice_energy is not None:
+        values.append(
+            (voice_energy, 0.20)
+        )
+
+    pause_score = get_value(
+        result,
+        "pause_score"
+    )
+
+    if pause_score is not None:
+        values.append(
+            (pause_score, 0.15)
+        )
+
+    clarity = get_value(
+        result,
+        "clarity"
+    )
+
+    if clarity is not None:
+        values.append(
+            (clarity, 0.10)
+        )
+
+    pace = calculate_pace_score(
+        result
+    )
+
+    if pace is not None:
+        values.append(
+            (pace, 0.10)
+        )
+
+    filler = calculate_filler_quality(
+        result
+    )
+
+    if filler is not None:
+        values.append(
+            (filler, 0.10)
+        )
+
+    return weighted_average(values)
 
 
 # =========================================================
@@ -84,54 +334,215 @@ def calculate_confidence(result):
 
 def calculate_leadership(result):
 
-    return weighted_score(
+    values = []
+
+    structure = get_value(
         result,
-        {
-            "voice_energy": 0.30,
-            "voice_confidence": 0.25,
-            "speech_quality": 0.20,
-            "clarity": 0.15,
-            "posture": 0.10,
-        }
+        "structure_score"
     )
+
+    if structure is not None:
+        values.append(
+            (structure, 0.30)
+        )
+
+    clarity = get_value(
+        result,
+        "clarity"
+    )
+
+    if clarity is not None:
+        values.append(
+            (clarity, 0.20)
+        )
+
+    voice = get_value(
+        result,
+        "voice_confidence"
+    )
+
+    if voice is not None:
+        values.append(
+            (voice, 0.15)
+        )
+
+    energy = get_value(
+        result,
+        "voice_energy"
+    )
+
+    if energy is not None:
+        values.append(
+            (energy, 0.10)
+        )
+
+    repetition = calculate_repetition_quality(
+        result
+    )
+
+    if repetition is not None:
+        values.append(
+            (repetition, 0.10)
+        )
+
+    pace = calculate_pace_score(
+        result
+    )
+
+    if pace is not None:
+        values.append(
+            (pace, 0.15)
+        )
+
+    return weighted_average(values)
 
 
 # =========================================================
-# INTERVIEW SCORE
+# INTERVIEW
 # =========================================================
 
 def calculate_interview_score(result):
 
-    return weighted_score(
+    values = []
+
+    clarity = get_value(
         result,
-        {
-            "confidence": 0.20,
-            "leadership": 0.15,
-            "voice_confidence": 0.15,
-            "speech_quality": 0.20,
-            "answer_relevance": 0.20,
-            "clarity": 0.10,
-        }
+        "clarity"
     )
+
+    if clarity is not None:
+        values.append(
+            (clarity, 0.25)
+        )
+
+    structure = get_value(
+        result,
+        "structure_score"
+    )
+
+    if structure is not None:
+        values.append(
+            (structure, 0.20)
+        )
+
+    voice = get_value(
+        result,
+        "voice_confidence"
+    )
+
+    if voice is not None:
+        values.append(
+            (voice, 0.15)
+        )
+
+    pace = calculate_pace_score(
+        result
+    )
+
+    if pace is not None:
+        values.append(
+            (pace, 0.15)
+        )
+
+    filler = calculate_filler_quality(
+        result
+    )
+
+    if filler is not None:
+        values.append(
+            (filler, 0.15)
+        )
+
+    repetition = calculate_repetition_quality(
+        result
+    )
+
+    if repetition is not None:
+        values.append(
+            (repetition, 0.10)
+        )
+
+    return weighted_average(values)
 
 
 # =========================================================
-# PRESENTATION SCORE
+# PRESENTATION
 # =========================================================
 
 def calculate_presentation_score(result):
 
-    return weighted_score(
+    values = []
+
+    structure = get_value(
         result,
-        {
-            "confidence": 0.20,
-            "leadership": 0.15,
-            "gesture_score": 0.15,
-            "voice_energy": 0.20,
-            "speech_quality": 0.15,
-            "clarity": 0.15,
-        }
+        "structure_score"
     )
+
+    if structure is not None:
+        values.append(
+            (structure, 0.25)
+        )
+
+    clarity = get_value(
+        result,
+        "clarity"
+    )
+
+    if clarity is not None:
+        values.append(
+            (clarity, 0.20)
+        )
+
+    voice = get_value(
+        result,
+        "voice_confidence"
+    )
+
+    if voice is not None:
+        values.append(
+            (voice, 0.15)
+        )
+
+    energy = get_value(
+        result,
+        "voice_energy"
+    )
+
+    if energy is not None:
+        values.append(
+            (energy, 0.10)
+        )
+
+    gesture = get_value(
+        result,
+        "gesture_score"
+    )
+
+    if gesture is not None:
+        values.append(
+            (gesture, 0.10)
+        )
+
+    posture = get_value(
+        result,
+        "posture"
+    )
+
+    if posture is not None:
+        values.append(
+            (posture, 0.10)
+        )
+
+    pace = calculate_pace_score(
+        result
+    )
+
+    if pace is not None:
+        values.append(
+            (pace, 0.10)
+        )
+
+    return weighted_average(values)
 
 
 # =========================================================
@@ -140,47 +551,165 @@ def calculate_presentation_score(result):
 
 def calculate_executive_presence(result):
 
-    return weighted_score(
+    values = []
+
+    structure = get_value(
         result,
-        {
-            "confidence": 0.30,
-            "leadership": 0.25,
-            "voice_confidence": 0.20,
-            "speech_quality": 0.15,
-            "posture": 0.10,
-        }
+        "structure_score"
     )
+
+    if structure is not None:
+        values.append(
+            (structure, 0.25)
+        )
+
+    clarity = get_value(
+        result,
+        "clarity"
+    )
+
+    if clarity is not None:
+        values.append(
+            (clarity, 0.20)
+        )
+
+    voice = get_value(
+        result,
+        "voice_confidence"
+    )
+
+    if voice is not None:
+        values.append(
+            (voice, 0.15)
+        )
+
+    energy = get_value(
+        result,
+        "voice_energy"
+    )
+
+    if energy is not None:
+        values.append(
+            (energy, 0.10)
+        )
+
+    posture = get_value(
+        result,
+        "posture"
+    )
+
+    if posture is not None:
+        values.append(
+            (posture, 0.10)
+        )
+
+    gesture = get_value(
+        result,
+        "gesture_score"
+    )
+
+    if gesture is not None:
+        values.append(
+            (gesture, 0.10)
+        )
+
+    repetition = calculate_repetition_quality(
+        result
+    )
+
+    if repetition is not None:
+        values.append(
+            (repetition, 0.10)
+        )
+
+    return weighted_average(values)
 
 
 # =========================================================
-# OVERALL SCORE
+# OVERALL
+#
+# IMPORTANT:
+# ONLY PRIMARY MEASUREMENTS.
+#
+# Never:
+# confidence
+# leadership
+# presentation_score
+# executive_presence
 # =========================================================
 
 def calculate_overall_score(result):
 
-    scores = [
-        result.get("confidence"),
-        result.get("leadership"),
-        result.get("interview_score"),
-        result.get("presentation_score"),
-        result.get("executive_presence"),
+    values = []
+
+    direct_measurements = [
+        ("speech_quality", 0.18),
+        ("clarity", 0.15),
+        ("structure_score", 0.15),
+        ("voice_confidence", 0.12),
+        ("voice_energy", 0.10),
     ]
 
-    valid_scores = []
+    for key, weight in direct_measurements:
 
-    for score in scores:
+        value = get_value(
+            result,
+            key
+        )
 
-        if score is None:
-            continue
+        if value is not None:
 
-        try:
-            valid_scores.append(float(score))
-        except (TypeError, ValueError):
-            continue
+            values.append(
+                (value, weight)
+            )
 
-    if not valid_scores:
-        return None
+    pace = calculate_pace_score(
+        result
+    )
 
-    return clamp(
-        sum(valid_scores) / len(valid_scores)
+    if pace is not None:
+        values.append(
+            (pace, 0.10)
+        )
+
+    repetition = calculate_repetition_quality(
+        result
+    )
+
+    if repetition is not None:
+        values.append(
+            (repetition, 0.10)
+        )
+
+    filler = calculate_filler_quality(
+        result
+    )
+
+    if filler is not None:
+        values.append(
+            (filler, 0.05)
+        )
+
+    posture = get_value(
+        result,
+        "posture"
+    )
+
+    if posture is not None:
+        values.append(
+            (posture, 0.025)
+        )
+
+    gesture = get_value(
+        result,
+        "gesture_score"
+    )
+
+    if gesture is not None:
+        values.append(
+            (gesture, 0.025)
+        )
+
+    return weighted_average(
+        values
     )

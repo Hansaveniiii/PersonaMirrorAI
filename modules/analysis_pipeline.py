@@ -20,7 +20,10 @@ from modules.ai_coach import (
 )
 
 
-def analyze_complete_video(video_path, analysis_type="General Speech"):
+def analyze_complete_video(
+    video_path,
+    analysis_type="General Speech"
+):
 
     result = {}
 
@@ -31,13 +34,21 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
     print("STEP 1: Visual analysis")
 
     try:
-        visual_result = analyze_video(video_path, analysis_type)
+
+        visual_result = analyze_video(
+            video_path,
+            analysis_type
+        )
 
         if isinstance(visual_result, dict):
             result.update(visual_result)
 
     except Exception as e:
+
         print("Visual analysis error:", e)
+
+        result["vision_available"] = False
+
 
     # =========================================================
     # 2. SPEECH TRANSCRIPTION
@@ -46,20 +57,33 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
     print("STEP 2: Speech transcription")
 
     try:
-        transcript_result = transcribe_video(video_path)
+
+        transcript_result = transcribe_video(
+            video_path
+        )
 
         if isinstance(transcript_result, dict):
-            result.update(transcript_result)
+
+            result.update(
+                transcript_result
+            )
+
+            result["transcription_available"] = True
 
     except Exception as e:
 
-        print("Speech transcription error:", e)
+        print(
+            "Speech transcription error:",
+            e
+        )
 
         result["transcript"] = ""
         result["word_count"] = 0
         result["speech"] = None
         result["duration"] = None
+
         result["transcription_available"] = False
+
 
     # =========================================================
     # 3. TRANSCRIPT CLEANING
@@ -67,7 +91,10 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
 
     print("STEP 3: Transcript cleaning")
 
-    original_transcript = result.get("transcript", "")
+    original_transcript = result.get(
+        "transcript",
+        ""
+    )
 
     try:
 
@@ -78,39 +105,61 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
 
         if isinstance(cleaned, dict):
 
-            result["original_transcript"] = cleaned.get(
-                "original_transcript",
-                original_transcript
+            result["original_transcript"] = (
+                cleaned.get(
+                    "original_transcript",
+                    original_transcript
+                )
             )
 
-            result["transcript"] = cleaned.get(
-                "transcript",
-                original_transcript
+            result["transcript"] = (
+                cleaned.get(
+                    "transcript",
+                    original_transcript
+                )
             )
 
-            result["hallucination_flags"] = cleaned.get(
-                "hallucination_flags",
-                []
+            result["hallucination_flags"] = (
+                cleaned.get(
+                    "hallucination_flags",
+                    []
+                )
             )
 
-            result["transcript_quality"] = cleaned.get(
-                "transcript_quality"
+            result["transcript_quality"] = (
+                cleaned.get(
+                    "transcript_quality"
+                )
             )
 
-            result["transcript_cleaned"] = cleaned.get(
-                "cleaned",
-                False
+            result["transcript_cleaned"] = (
+                cleaned.get(
+                    "cleaned",
+                    False
+                )
             )
 
     except Exception as e:
 
-        print("Transcript cleaning error:", e)
+        print(
+            "Transcript cleaning error:",
+            e
+        )
 
-        result["original_transcript"] = original_transcript
-        result["transcript"] = original_transcript
+        result["original_transcript"] = (
+            original_transcript
+        )
+
+        result["transcript"] = (
+            original_transcript
+        )
+
         result["hallucination_flags"] = []
+
         result["transcript_quality"] = None
+
         result["transcript_cleaned"] = False
+
 
     # =========================================================
     # 4. TRANSCRIPT INTELLIGENCE
@@ -121,52 +170,101 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
     try:
 
         transcript_analysis = analyze_transcript(
-            result.get("transcript", ""),
+            result.get(
+                "transcript",
+                ""
+            ),
             analysis_type
         )
 
-        if isinstance(transcript_analysis, dict):
+        if isinstance(
+            transcript_analysis,
+            dict
+        ):
 
-            result.update({
-                "transcript_word_count":
-                    transcript_analysis.get("word_count"),
+            result["transcript_word_count"] = (
+                transcript_analysis.get(
+                    "word_count"
+                )
+            )
 
-                "filler_count":
-                    transcript_analysis.get("filler_count"),
+            result["filler_count"] = (
+                transcript_analysis.get(
+                    "filler_count"
+                )
+            )
 
-                "fillers":
-                    transcript_analysis.get("fillers", {}),
+            result["fillers"] = (
+                transcript_analysis.get(
+                    "fillers",
+                    {}
+                )
+            )
 
-                "opening":
-                    transcript_analysis.get("opening", ""),
+            result["opening"] = (
+                transcript_analysis.get(
+                    "opening",
+                    ""
+                )
+            )
 
-                "conclusion":
-                    transcript_analysis.get("conclusion", ""),
+            result["conclusion"] = (
+                transcript_analysis.get(
+                    "conclusion",
+                    ""
+                )
+            )
 
-                "structure_score":
-                    transcript_analysis.get("structure_score"),
+            result["structure_score"] = (
+                transcript_analysis.get(
+                    "structure_score"
+                )
+            )
 
-                "clarity":
-                    transcript_analysis.get("clarity_score"),
+            result["clarity"] = (
+                transcript_analysis.get(
+                    "clarity_score"
+                )
+            )
 
-                "speech_quality":
-                    transcript_analysis.get("clarity_score"),
+            result["speech_quality"] = (
+                transcript_analysis.get(
+                    "speech_quality"
+                )
+            )
 
-                "repetition_score":
-                    transcript_analysis.get("repetition_score"),
+            result["repetition_score"] = (
+                transcript_analysis.get(
+                    "repetition_score"
+                )
+            )
 
-                "repeated_words":
-                    transcript_analysis.get("repeated_words", {}),
-            })
+            result["repeated_words"] = (
+                transcript_analysis.get(
+                    "repeated_words",
+                    {}
+                )
+            )
 
     except Exception as e:
 
-        print("Transcript analysis error:", e)
+        print(
+            "Transcript analysis error:",
+            e
+        )
+
+        result["transcript_word_count"] = None
+        result["filler_count"] = None
+        result["fillers"] = {}
+        result["opening"] = ""
+        result["conclusion"] = ""
 
         result["structure_score"] = None
         result["clarity"] = None
         result["speech_quality"] = None
         result["repetition_score"] = None
+        result["repeated_words"] = {}
+
 
     # =========================================================
     # 5. VOICE ANALYSIS
@@ -176,18 +274,37 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
 
     try:
 
-        voice_result = analyze_voice(video_path)
+        voice_result = analyze_voice(
+            video_path
+        )
 
-        if isinstance(voice_result, dict):
-            result.update(voice_result)
+        if isinstance(
+            voice_result,
+            dict
+        ):
+
+            result.update(
+                voice_result
+            )
+
+            result["voice_analysis_available"] = True
 
     except Exception as e:
 
-        print("Voice analysis error:", e)
+        print(
+            "Voice analysis error:",
+            e
+        )
 
         result["voice_confidence"] = None
         result["voice_energy"] = None
         result["pause_score"] = None
+
+        result["voice_confidence_available"] = False
+        result["voice_energy_available"] = False
+        result["pause_score_available"] = False
+        result["voice_analysis_available"] = False
+
 
     # =========================================================
     # 6. EMOTION ANALYSIS
@@ -197,66 +314,374 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
 
     try:
 
-        result["emotion"] = analyze_emotion(video_path)
+        result["emotion"] = (
+            analyze_emotion(
+                video_path
+            )
+        )
 
     except Exception as e:
 
-        print("Emotion analysis error:", e)
+        print(
+            "Emotion analysis error:",
+            e
+        )
+
         result["emotion"] = "Unknown"
+
 
     # =========================================================
     # 7. ANALYSIS TYPE
     # =========================================================
 
-    result["analysis_type"] = analysis_type
+    result["analysis_type"] = (
+        analysis_type
+    )
+
 
     # =========================================================
-    # 8. AI SCORING
+    # 8. PRIMARY MEASUREMENT NORMALIZATION
+    #
+    # Nothing is scored until this section is complete.
     # =========================================================
 
-    print("STEP 7: AI scoring")
+    print(
+        "STEP 6.5: Preparing primary measurements"
+    )
+
+
+    # ---------------------------------------------------------
+    # WORD COUNT
+    # ---------------------------------------------------------
+
+    word_count = result.get(
+        "word_count"
+    )
 
     try:
-        result["confidence"] = calculate_confidence(result)
+
+        word_count = int(
+            word_count
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        word_count = 0
+
+
+    if word_count <= 0:
+
+        transcript_word_count = (
+            result.get(
+                "transcript_word_count"
+            )
+        )
+
+        try:
+
+            word_count = int(
+                transcript_word_count
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            word_count = 0
+
+
+    result["word_count"] = (
+        word_count
+    )
+
+
+    # ---------------------------------------------------------
+    # DURATION
+    # ---------------------------------------------------------
+
+    duration = result.get(
+        "duration"
+    )
+
+    try:
+
+        duration = float(
+            duration
+        )
+
+        if duration <= 0:
+
+            duration = None
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        duration = None
+
+
+    result["duration"] = (
+        duration
+    )
+
+
+    # ---------------------------------------------------------
+    # WPM
+    #
+    # IMPORTANT:
+    # This is calculated BEFORE ANY SCORE.
+    # ---------------------------------------------------------
+
+    if (
+        duration is not None
+        and
+        duration > 0
+        and
+        word_count > 0
+    ):
+
+        result["speech"] = round(
+            word_count /
+            (duration / 60),
+            1
+        )
+
+    else:
+
+        result["speech"] = None
+
+
+    # ---------------------------------------------------------
+    # REPEATED WORDS
+    #
+    # This remains the source of truth.
+    # ---------------------------------------------------------
+
+    repeated_words = result.get(
+        "repeated_words",
+        {}
+    )
+
+    if not isinstance(
+        repeated_words,
+        dict
+    ):
+
+        repeated_words = {}
+
+
+    result["repeated_words"] = (
+        repeated_words
+    )
+
+
+    # ---------------------------------------------------------
+    # INVALID ZERO VALUES
+    #
+    # Zero is accepted ONLY when the measurement
+    # was genuinely available.
+    # ---------------------------------------------------------
+
+    unavailable_metrics = [
+
+        "voice_confidence",
+        "voice_energy",
+        "pause_score",
+
+        "eye_contact",
+        "posture",
+        "gesture_score",
+        "smile",
+        "engagement",
+
+    ]
+
+
+    for key in unavailable_metrics:
+
+        value = result.get(
+            key
+        )
+
+        available = result.get(
+            f"{key}_available",
+            True
+        )
+
+        if (
+            value == 0
+            and
+            available is False
+        ):
+
+            result[key] = None
+
+
+    # =========================================================
+    # 9. INDEPENDENT AI SCORING
+    #
+    # Every dimension reads PRIMARY measurements.
+    #
+    # NO:
+    #
+    # confidence -> leadership
+    # leadership -> presentation
+    # presentation -> executive
+    # executive -> overall
+    #
+    # =========================================================
+
+    print(
+        "STEP 7: AI scoring"
+    )
+
+
+    # ---------------------------------------------------------
+    # CONFIDENCE
+    # ---------------------------------------------------------
+
+    try:
+
+        result["confidence"] = (
+            calculate_confidence(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Confidence scoring error:", e)
+
+        print(
+            "Confidence scoring error:",
+            e
+        )
+
         result["confidence"] = None
 
+
+    # ---------------------------------------------------------
+    # LEADERSHIP
+    # ---------------------------------------------------------
+
     try:
-        result["leadership"] = calculate_leadership(result)
+
+        result["leadership"] = (
+            calculate_leadership(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Leadership scoring error:", e)
+
+        print(
+            "Leadership scoring error:",
+            e
+        )
+
         result["leadership"] = None
 
+
+    # ---------------------------------------------------------
+    # INTERVIEW
+    # ---------------------------------------------------------
+
     try:
-        result["interview_score"] = calculate_interview_score(result)
+
+        result["interview_score"] = (
+            calculate_interview_score(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Interview scoring error:", e)
+
+        print(
+            "Interview scoring error:",
+            e
+        )
+
         result["interview_score"] = None
 
+
+    # ---------------------------------------------------------
+    # PRESENTATION
+    # ---------------------------------------------------------
+
     try:
-        result["presentation_score"] = calculate_presentation_score(result)
+
+        result["presentation_score"] = (
+            calculate_presentation_score(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Presentation scoring error:", e)
+
+        print(
+            "Presentation scoring error:",
+            e
+        )
+
         result["presentation_score"] = None
 
+
+    # ---------------------------------------------------------
+    # EXECUTIVE PRESENCE
+    # ---------------------------------------------------------
+
     try:
-        result["executive_presence"] = calculate_executive_presence(result)
+
+        result["executive_presence"] = (
+            calculate_executive_presence(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Executive scoring error:", e)
+
+        print(
+            "Executive scoring error:",
+            e
+        )
+
         result["executive_presence"] = None
 
+
+    # ---------------------------------------------------------
+    # OVERALL
+    #
+    # ONLY PRIMARY MEASUREMENTS.
+    # ---------------------------------------------------------
+
     try:
-        result["overall_score"] = calculate_overall_score(result)
+
+        result["overall_score"] = (
+            calculate_overall_score(
+                result
+            )
+        )
+
     except Exception as e:
-        print("Overall scoring error:", e)
+
+        print(
+            "Overall scoring error:",
+            e
+        )
+
         result["overall_score"] = None
 
+
     # =========================================================
-    # 9. AI FEEDBACK
+    # 10. AI FEEDBACK
     # =========================================================
 
-    print("STEP 8: AI feedback")
+    print(
+        "STEP 8: AI feedback"
+    )
 
     try:
 
@@ -265,84 +690,148 @@ def analyze_complete_video(video_path, analysis_type="General Speech"):
             analysis_type
         )
 
-        if isinstance(feedback, dict):
-            result["feedback"] = feedback
+        if isinstance(
+            feedback,
+            dict
+        ):
+
+            result["feedback"] = (
+                feedback
+            )
+
         else:
+
             result["feedback"] = {
+
                 "strengths": [],
                 "improvements": [],
                 "suggestions": []
+
             }
 
     except Exception as e:
 
-        print("AI feedback error:", e)
+        print(
+            "AI feedback error:",
+            e
+        )
 
         result["feedback"] = {
+
             "strengths": [],
             "improvements": [],
             "suggestions": []
+
         }
 
+
     # =========================================================
-    # 10. FINAL NORMALIZATION
+    # 11. FINAL STATE
     # =========================================================
-
-    # Use transcript word count when available.
-    if not result.get("word_count"):
-        result["word_count"] = result.get(
-            "transcript_word_count",
-            0
-        )
-
-    # Calculate WPM from actual duration when possible.
-    duration = result.get("duration")
-    words = result.get("word_count", 0)
-
-    try:
-        duration = float(duration)
-        words = int(words)
-
-        if duration > 0 and words > 0:
-            result["speech"] = round(
-                words / (duration / 60),
-                1
-            )
-    except (TypeError, ValueError, ZeroDivisionError):
-        pass
-
-    # Never turn unavailable measurements into fake zeroes.
-    for key in (
-        "voice_confidence",
-        "voice_energy",
-        "pause_score",
-        "eye_contact",
-        "posture",
-        "gesture_score",
-        "smile",
-        "engagement",
-    ):
-        if result.get(key) == 0 and not result.get(
-            f"{key}_available",
-            True
-        ):
-            result[key] = None
 
     result["analysis_ready"] = True
 
-    print("=================================================")
-    print("ANALYSIS COMPLETE")
-    print("Overall:", result.get("overall_score"))
-    print("Confidence:", result.get("confidence"))
-    print("Leadership:", result.get("leadership"))
-    print("Presentation:", result.get("presentation_score"))
-    print("Executive:", result.get("executive_presence"))
-    print("Speech Quality:", result.get("speech_quality"))
-    print("Structure:", result.get("structure_score"))
-    print("Clarity:", result.get("clarity"))
-    print("Voice Confidence:", result.get("voice_confidence"))
-    print("Words:", result.get("word_count"))
-    print("Duration:", result.get("duration"))
-    print("=================================================")
+
+    # =========================================================
+    # DEBUG OUTPUT
+    # =========================================================
+
+    print(
+        "================================================="
+    )
+
+    print(
+        "ANALYSIS COMPLETE"
+    )
+
+    print(
+        "Overall:",
+        result.get("overall_score")
+    )
+
+    print(
+        "Confidence:",
+        result.get("confidence")
+    )
+
+    print(
+        "Leadership:",
+        result.get("leadership")
+    )
+
+    print(
+        "Interview:",
+        result.get("interview_score")
+    )
+
+    print(
+        "Presentation:",
+        result.get("presentation_score")
+    )
+
+    print(
+        "Executive:",
+        result.get("executive_presence")
+    )
+
+    print(
+        "Speech Quality:",
+        result.get("speech_quality")
+    )
+
+    print(
+        "Structure:",
+        result.get("structure_score")
+    )
+
+    print(
+        "Clarity:",
+        result.get("clarity")
+    )
+
+    print(
+        "Repetition Score:",
+        result.get("repetition_score")
+    )
+
+    print(
+        "Repeated Words:",
+        result.get("repeated_words")
+    )
+
+    print(
+        "Voice Confidence:",
+        result.get("voice_confidence")
+    )
+
+    print(
+        "Voice Energy:",
+        result.get("voice_energy")
+    )
+
+    print(
+        "Pause Score:",
+        result.get("pause_score")
+    )
+
+    print(
+        "Words:",
+        result.get("word_count")
+    )
+
+    print(
+        "Duration:",
+        result.get("duration")
+    )
+
+    print(
+        "WPM:",
+        result.get("speech")
+    )
+
+    print(
+        "================================================="
+    )
+
 
     return result

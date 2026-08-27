@@ -1,15 +1,16 @@
 import re
+import math
 
+
+# =========================================================
+# TEXT UTILITIES
+# =========================================================
 
 def clean_text(text):
     if not text:
         return ""
 
-    return re.sub(
-        r"\s+",
-        " ",
-        str(text)
-    ).strip()
+    return re.sub(r"\s+", " ", str(text)).strip()
 
 
 def count_words(text):
@@ -38,7 +39,6 @@ def find_fillers(text):
     ]
 
     text_lower = text.lower()
-
     found = {}
 
     for filler in filler_words:
@@ -58,7 +58,301 @@ def find_fillers(text):
     return found
 
 
-def analyze_transcript(text, analysis_type):
+# =========================================================
+# SENTENCE ANALYSIS
+# =========================================================
+
+def get_sentences(text):
+
+    sentences = re.split(
+        r"[.!?]+",
+        text
+    )
+
+    return [
+        s.strip()
+        for s in sentences
+        if s.strip()
+    ]
+
+
+# =========================================================
+# STRUCTURE SCORE
+# =========================================================
+
+def calculate_structure(text, sentences):
+
+    if not text or not sentences:
+        return None
+
+    score = 45.0
+
+    sentence_count = len(sentences)
+
+    # Reasonable number of sentences
+    if sentence_count >= 2:
+        score += 8
+
+    if sentence_count >= 4:
+        score += 7
+
+    if sentence_count >= 7:
+        score += 5
+
+    # Transition language
+    transition_phrases = [
+        "first",
+        "firstly",
+        "second",
+        "secondly",
+        "third",
+        "finally",
+        "however",
+        "therefore",
+        "because",
+        "for example",
+        "for instance",
+        "in addition",
+        "on the other hand",
+        "in conclusion",
+        "to conclude",
+        "overall",
+        "next",
+        "then",
+    ]
+
+    lower_text = text.lower()
+
+    transition_count = 0
+
+    for phrase in transition_phrases:
+
+        if re.search(
+            r"\b" + re.escape(phrase) + r"\b",
+            lower_text
+        ):
+            transition_count += 1
+
+    score += min(
+        transition_count * 5,
+        20
+    )
+
+    # Opening and conclusion indicators
+    opening_words = [
+        "hello",
+        "hi",
+        "today",
+        "i am",
+        "my name",
+        "respected",
+        "good morning",
+        "good afternoon",
+        "good evening",
+    ]
+
+    conclusion_words = [
+        "thank you",
+        "in conclusion",
+        "to conclude",
+        "finally",
+        "overall",
+        "jai hind",
+    ]
+
+    if any(
+        phrase in lower_text[:180]
+        for phrase in opening_words
+    ):
+        score += 5
+
+    if any(
+        phrase in lower_text[-180:]
+        for phrase in conclusion_words
+    ):
+        score += 5
+
+    return round(
+        max(0, min(100, score))
+    )
+
+
+# =========================================================
+# CLARITY SCORE
+# =========================================================
+
+def calculate_clarity(
+    text,
+    words,
+    sentences,
+    filler_count,
+    repeated_words
+):
+
+    if not text or words == 0:
+        return None
+
+    score = 100.0
+
+    # -----------------------------------------------------
+    # Filler penalty
+    # -----------------------------------------------------
+
+    filler_ratio = (
+        filler_count / words
+    ) * 100
+
+    score -= min(
+        filler_ratio * 3.0,
+        25
+    )
+
+    # -----------------------------------------------------
+    # Extremely long sentences
+    # -----------------------------------------------------
+
+    if sentences:
+
+        sentence_lengths = [
+            count_words(sentence)
+            for sentence in sentences
+        ]
+
+        average_length = (
+            sum(sentence_lengths)
+            / len(sentence_lengths)
+        )
+
+        if average_length > 35:
+            score -= 12
+
+        elif average_length > 28:
+            score -= 7
+
+        elif average_length < 5 and len(sentences) >= 3:
+            score -= 5
+
+    # -----------------------------------------------------
+    # Repetition penalty
+    # -----------------------------------------------------
+
+    if repeated_words:
+
+        repetition_penalty = min(
+            len(repeated_words) * 3,
+            18
+        )
+
+        score -= repetition_penalty
+
+    return round(
+        max(0, min(100, score))
+    )
+
+
+# =========================================================
+# REPETITION ANALYSIS
+# =========================================================
+
+def calculate_repetition(text):
+
+    words_list = re.findall(
+        r"\b[a-zA-Z']+\b",
+        text.lower()
+    )
+
+    word_frequency = {}
+
+    # Common words are ignored because repetition of
+    # "the", "and", "is", etc. is not useful feedback.
+
+    ignored_words = {
+        "this",
+        "that",
+        "with",
+        "from",
+        "have",
+        "will",
+        "your",
+        "they",
+        "them",
+        "their",
+        "there",
+        "about",
+        "which",
+        "would",
+        "could",
+        "should",
+        "because",
+        "what",
+        "when",
+        "where",
+        "were",
+        "been",
+        "being",
+        "into",
+        "also",
+        "very",
+        "more",
+        "than",
+        "then",
+    }
+
+    for word in words_list:
+
+        if len(word) < 4:
+            continue
+
+        if word in ignored_words:
+            continue
+
+        word_frequency[word] = (
+            word_frequency.get(word, 0) + 1
+        )
+
+    repeated_words = {
+        word: count
+        for word, count in word_frequency.items()
+        if count >= 4
+    }
+
+    if not words_list:
+        return None, {}
+
+    # -----------------------------------------------------
+    # Repetition score
+    # -----------------------------------------------------
+
+    score = 100.0
+
+    for word, count in repeated_words.items():
+
+        excess = count - 3
+
+        score -= min(
+            excess * 2.5,
+            12
+        )
+
+    score -= min(
+        len(repeated_words) * 2,
+        15
+    )
+
+    return (
+        round(max(0, min(100, score))),
+        repeated_words
+    )
+
+
+# =========================================================
+# TRANSCRIPT INTELLIGENCE
+# =========================================================
+
+def analyze_transcript(
+    text,
+    analysis_type="General Speech"
+):
 
     text = clean_text(text)
 
@@ -72,7 +366,9 @@ def analyze_transcript(text, analysis_type):
             "conclusion": "",
             "structure_score": None,
             "clarity_score": None,
+            "speech_quality": None,
             "repetition_score": None,
+            "repeated_words": {},
         }
 
     words = count_words(text)
@@ -83,169 +379,144 @@ def analyze_transcript(text, analysis_type):
         fillers.values()
     )
 
-    sentences = re.split(
-        r"[.!?]+",
-        text
+    sentences = get_sentences(text)
+
+    opening = (
+        sentences[0]
+        if sentences
+        else ""
     )
 
-    sentences = [
-        s.strip()
-        for s in sentences
-        if s.strip()
-    ]
-
-    # ---------------------------------------------------------
-    # OPENING
-    # ---------------------------------------------------------
-
-    opening = ""
-
-    if sentences:
-
-        opening = sentences[0]
-
-    # ---------------------------------------------------------
-    # CONCLUSION
-    # ---------------------------------------------------------
-
-    conclusion = ""
-
-    if sentences:
-
-        conclusion = sentences[-1]
-
-    # ---------------------------------------------------------
-    # FILLER SCORE
-    # ---------------------------------------------------------
-
-    filler_ratio = 0
-
-    if words > 0:
-
-        filler_ratio = (
-            filler_count / words
-        ) * 100
-
-    # ---------------------------------------------------------
-    # STRUCTURE
-    # ---------------------------------------------------------
-
-    structure_score = 70
-
-    if len(sentences) >= 5:
-
-        structure_score += 10
-
-    if len(sentences) >= 10:
-
-        structure_score += 5
-
-    # Look for transition language
-
-    transition_words = [
-        "first",
-        "second",
-        "finally",
-        "however",
-        "therefore",
-        "because",
-        "for example",
-        "in addition",
-        "on the other hand",
-        "in conclusion",
-        "to conclude",
-    ]
-
-    transition_count = 0
-
-    lower_text = text.lower()
-
-    for word in transition_words:
-
-        if word in lower_text:
-
-            transition_count += 1
-
-    structure_score += min(
-        transition_count * 2,
-        10
+    conclusion = (
+        sentences[-1]
+        if sentences
+        else ""
     )
 
-    structure_score = min(
-        structure_score,
-        100
+    # -----------------------------------------------------
+    # Repetition
+    # -----------------------------------------------------
+
+    repetition_score, repeated_words = (
+        calculate_repetition(text)
     )
 
-    # ---------------------------------------------------------
-    # CLARITY
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
+    # Structure
+    # -----------------------------------------------------
 
-    clarity_score = 85
-
-    if filler_ratio > 5:
-
-        clarity_score -= 15
-
-    elif filler_ratio > 2:
-
-        clarity_score -= 7
-
-    # ---------------------------------------------------------
-    # REPETITION
-    # ---------------------------------------------------------
-
-    words_list = re.findall(
-        r"\b[a-zA-Z']+\b",
-        text.lower()
+    structure_score = calculate_structure(
+        text,
+        sentences
     )
 
-    word_frequency = {}
+    # -----------------------------------------------------
+    # Clarity
+    # -----------------------------------------------------
 
-    for word in words_list:
+    clarity_score = calculate_clarity(
+        text,
+        words,
+        sentences,
+        filler_count,
+        repeated_words
+    )
 
-        if len(word) < 4:
-            continue
+    # -----------------------------------------------------
+    # SPEECH QUALITY
+    #
+    # No longer simply equal to clarity.
+    #
+    # It combines:
+    # - clarity
+    # - structure
+    # - repetition
+    # - filler control
+    # -----------------------------------------------------
 
-        word_frequency[word] = (
-            word_frequency.get(
-                word,
-                0
-            ) + 1
+    quality_components = []
+
+    if clarity_score is not None:
+        quality_components.append(
+            (clarity_score, 0.40)
         )
 
-    repeated_words = {
-        word: count
-        for word, count
-        in word_frequency.items()
-        if count >= 5
-    }
+    if structure_score is not None:
+        quality_components.append(
+            (structure_score, 0.30)
+        )
 
-    repetition_score = 90
+    if repetition_score is not None:
+        quality_components.append(
+            (repetition_score, 0.20)
+        )
 
-    if len(repeated_words) >= 5:
+    # Filler control
+    if words > 0:
 
-        repetition_score = 65
+        filler_control = max(
+            0,
+            min(
+                100,
+                100 - (
+                    (filler_count / words)
+                    * 100
+                    * 4
+                )
+            )
+        )
 
-    elif len(repeated_words) >= 3:
+        quality_components.append(
+            (filler_control, 0.10)
+        )
 
-        repetition_score = 75
+    if quality_components:
 
-    elif len(repeated_words) >= 1:
+        total_weight = sum(
+            weight
+            for _, weight
+            in quality_components
+        )
 
-        repetition_score = 85
+        speech_quality = round(
+            sum(
+                value * weight
+                for value, weight
+                in quality_components
+            )
+            / total_weight
+        )
+
+    else:
+        speech_quality = None
 
     return {
+
         "word_count": words,
+
         "filler_count": filler_count,
+
         "fillers": fillers,
+
         "opening": opening,
+
         "conclusion": conclusion,
+
         "structure_score": structure_score,
+
         "clarity_score": clarity_score,
+
+        "speech_quality": speech_quality,
+
         "repetition_score": repetition_score,
+
         "repeated_words": repeated_words,
     }
 
+
+# =========================================================
+# AI FEEDBACK
+# =========================================================
 
 def generate_ai_feedback(
     result,
@@ -259,7 +530,7 @@ def generate_ai_feedback(
         )
     )
 
-    transcript_analysis = analyze_transcript(
+    analysis = analyze_transcript(
         transcript,
         analysis_type
     )
@@ -276,355 +547,275 @@ def generate_ai_feedback(
         "leadership"
     )
 
-    speech = result.get(
-        "speech"
-    )
-
     voice_energy = result.get(
         "voice_energy"
     )
 
-    voice_confidence = result.get(
-        "voice_confidence"
-    )
-
-    posture = result.get(
-        "posture"
-    )
-
-    gesture = result.get(
-        "gesture_score"
-    )
-
-    structure = transcript_analysis.get(
+    structure = analysis.get(
         "structure_score"
     )
 
-    clarity = transcript_analysis.get(
+    clarity = analysis.get(
         "clarity_score"
     )
 
-    repetition = transcript_analysis.get(
+    repetition = analysis.get(
         "repetition_score"
     )
 
-    fillers = transcript_analysis.get(
+    fillers = analysis.get(
         "fillers",
         {}
     )
 
-    filler_count = transcript_analysis.get(
+    filler_count = analysis.get(
         "filler_count",
         0
     )
 
-    # =========================================================
-    # SPEECH / PRESENTATION
-    # =========================================================
+    # =====================================================
+    # CONFIDENCE
+    # =====================================================
 
-    if (
-        "Speech" in analysis_type
-        or "Presentation" in analysis_type
-        or "General" in analysis_type
-    ):
+    if confidence is not None:
 
-        # -----------------------------
-        # CONFIDENCE
-        # -----------------------------
-
-        if (
-            confidence is not None
-            and confidence >= 75
-        ):
+        if confidence >= 80:
 
             strengths.append(
-                "Your delivery shows a confident foundation, particularly in the way you maintain your overall presence while speaking."
+                "Your delivery shows a strong confidence foundation based on the available voice and speech signals."
             )
 
-        elif (
-            confidence is not None
-            and confidence < 60
-        ):
+        elif confidence >= 60:
+
+            strengths.append(
+                "Your delivery demonstrates a developing level of confidence."
+            )
+
+        else:
 
             improvements.append(
                 "Your delivery could communicate confidence more consistently."
             )
 
             suggestions.append(
-                "Focus on a deliberate opening, controlled pauses and finishing each major point before moving to the next."
+                "Use a deliberate opening, controlled pauses and stronger emphasis on your main message."
             )
 
-        # -----------------------------
-        # LEADERSHIP
-        # -----------------------------
+    # =====================================================
+    # LEADERSHIP
+    # =====================================================
 
-        if (
-            leadership is not None
-            and leadership >= 75
-        ):
+    if leadership is not None:
+
+        if leadership >= 80:
 
             strengths.append(
-                "You project a positive speaking presence and your delivery has the potential to hold an audience's attention."
+                "Your communication shows strong leadership-oriented delivery."
             )
 
-        # -----------------------------
-        # STRUCTURE
-        # -----------------------------
+        elif leadership < 60:
 
-        if (
-            structure is not None
-            and structure >= 85
-        ):
+            improvements.append(
+                "Your delivery could project stronger leadership and authority."
+            )
+
+            suggestions.append(
+                "State your main point clearly and support it with a concise reason or example."
+            )
+
+    # =====================================================
+    # STRUCTURE
+    # =====================================================
+
+    if structure is not None:
+
+        if structure >= 80:
 
             strengths.append(
-                "Your speech shows a reasonably clear progression of ideas rather than sounding like a collection of disconnected points."
+                "Your speech shows a clear progression of ideas."
             )
 
-        elif (
-            structure is not None
-            and structure < 75
-        ):
+        elif structure < 60:
 
             improvements.append(
                 "The movement between ideas could be more clearly signposted for the listener."
             )
 
             suggestions.append(
-                "Use short transition phrases when moving from one major idea to another so the audience always knows where your argument is going."
+                "Use short transition phrases such as 'first', 'next', 'however' or 'finally'."
             )
 
-        # -----------------------------
-        # CLARITY
-        # -----------------------------
+    # =====================================================
+    # CLARITY
+    # =====================================================
 
-        if (
-            clarity is not None
-            and clarity >= 85
-        ):
+    if clarity is not None:
+
+        if clarity >= 80:
 
             strengths.append(
-                "Your language is generally clear and understandable without excessive verbal clutter."
+                "Your language is generally clear and understandable."
             )
 
-        elif (
-            clarity is not None
-            and clarity < 75
-        ):
+        elif clarity < 60:
 
             improvements.append(
-                "Some verbal habits may be reducing the clarity of your delivery."
-            )
-
-        # -----------------------------
-        # FILLERS
-        # -----------------------------
-
-        if filler_count > 0:
-
-            filler_names = ", ".join(
-                fillers.keys()
-            )
-
-            improvements.append(
-                f"I noticed repeated filler expressions such as {filler_names}. These can make otherwise strong ideas sound less deliberate."
+                "Some parts of the speech may be harder to follow because of fillers, repetition or sentence complexity."
             )
 
             suggestions.append(
-                "Instead of replacing every filler with another word, allow yourself a short silent pause. Silence will usually sound more confident than filling the space."
+                "Use shorter sentences and pause briefly between major ideas."
             )
 
-        # -----------------------------
-        # REPETITION
-        # -----------------------------
+    # =====================================================
+    # FILLERS
+    # =====================================================
 
-        if (
-            repetition is not None
-            and repetition < 80
-        ):
-
-            repeated = list(
-                transcript_analysis.get(
-                    "repeated_words",
-                    {}
-                ).keys()
-            )
-
-            repeated_preview = ", ".join(
-                repeated[:5]
-            )
-
-            improvements.append(
-                f"Some ideas or words appear repeatedly{': ' + repeated_preview if repeated_preview else ''}, which can reduce the impact of your strongest points."
-            )
-
-            suggestions.append(
-                "After making your main point once, move forward with an example, explanation or consequence instead of restating the same idea."
-            )
-
-        # -----------------------------
-        # VOICE
-        # -----------------------------
-
-        if (
-            voice_energy is not None
-            and voice_energy >= 75
-        ):
-
-            strengths.append(
-                "Your vocal energy supports your message and helps prevent the speech from becoming flat."
-            )
-
-        elif (
-            voice_energy is not None
-            and voice_energy < 60
-        ):
-
-            improvements.append(
-                "Your vocal energy could vary more between important and supporting points."
-            )
-
-            suggestions.append(
-                "Use stronger emphasis on your key message and slightly lower energy during supporting details to create contrast."
-            )
-
-        # -----------------------------
-        # PACE
-        # -----------------------------
-
-        if speech is not None and speech > 0:
-
-            if speech > 175:
-
-                improvements.append(
-                    f"Your average speaking rate is around {speech} words per minute, which is relatively fast for a speech."
-                )
-
-                suggestions.append(
-                    "Slow down particularly before important ideas and allow the audience a moment to process them."
-                )
-
-            elif speech < 105:
-
-                improvements.append(
-                    f"Your average speaking rate is around {speech} words per minute, which may make parts of the speech feel less energetic."
-                )
-
-                suggestions.append(
-                    "Increase your rhythm slightly while preserving the clarity that comes from your slower delivery."
-                )
-
-            else:
-
-                strengths.append(
-                    f"Your speaking pace of approximately {speech} words per minute is within a comfortable range for clear communication."
-                )
-
-        # -----------------------------
-        # POSTURE
-        # -----------------------------
-
-        if (
-            posture is not None
-            and posture >= 80
-        ):
-
-            strengths.append(
-                "Your posture supports a composed and professional speaking presence."
-            )
-
-        # -----------------------------
-        # GESTURES
-        # -----------------------------
-
-        if (
-            gesture is not None
-            and gesture >= 75
-        ):
-
-            strengths.append(
-                "Your physical delivery appears to complement your spoken communication rather than distracting from it."
-            )
-
-        elif (
-            gesture is not None
-            and gesture < 60
-        ):
-
-            improvements.append(
-                "Your physical delivery could do more to reinforce your strongest spoken points."
-            )
-
-            suggestions.append(
-                "Use a small number of purposeful gestures when emphasizing key ideas rather than keeping the same physical movement throughout."
-            )
-
-    # =========================================================
-    # MOCK INTERVIEW
-    # =========================================================
-
-    elif "Mock Interview" in analysis_type:
+    if filler_count == 0:
 
         strengths.append(
-            "Your analysis is being evaluated specifically for interview-style communication."
+            "No significant filler-word usage was detected in the transcript."
+        )
+
+    elif filler_count <= 3:
+
+        strengths.append(
+            "Your filler-word usage is relatively controlled."
+        )
+
+    else:
+
+        improvements.append(
+            f"{filler_count} filler-word occurrences were detected."
         )
 
         suggestions.append(
-            "Give the main answer first, then support it with evidence, experience or a specific example."
+            "Replace filler words with a short pause when you need time to think."
         )
 
-    # =========================================================
-    # DEBATE
-    # =========================================================
+    # =====================================================
+    # REPETITION
+    # =====================================================
 
-    elif (
-        "Debate" in analysis_type
-        or "Public Speaking" in analysis_type
-    ):
+    if repetition is not None:
 
-        strengths.append(
-            "Your delivery is being evaluated with emphasis on persuasion, argument clarity and speaking presence."
+        repeated_words = analysis.get(
+            "repeated_words",
+            {}
         )
 
-        suggestions.append(
-            "Make each major claim explicit, support it with evidence and finish important arguments with a clear takeaway."
-        )
+        if repeated_words:
 
-    # =========================================================
-    # PERSONALIZED TRANSCRIPT OBSERVATION
-    # =========================================================
-
-    if transcript:
-
-        opening = transcript_analysis.get(
-            "opening",
-            ""
-        )
-
-        conclusion = transcript_analysis.get(
-            "conclusion",
-            ""
-        )
-
-        if opening:
-
-            strengths.append(
-                f"Your opening begins with: “{opening[:180]}”. This gives us a concrete starting point for improving how you establish the speech."
+            words_text = ", ".join(
+                sorted(
+                    repeated_words,
+                    key=repeated_words.get,
+                    reverse=True
+                )[:5]
             )
 
-        if conclusion:
+            improvements.append(
+                f"Some ideas or words appear repeatedly: {words_text}."
+            )
 
             suggestions.append(
-                f"Your final sentence was: “{conclusion[:180]}”. For your next recording, consider ending with a deliberate takeaway rather than simply stopping after the final sentence."
+                "After making your main point once, develop it with an example, explanation or consequence instead of repeating it."
             )
 
-    # =========================================================
-    # FALLBACKS
-    # =========================================================
+        elif repetition >= 85:
+
+            strengths.append(
+                "The transcript does not show significant repetition of content words."
+            )
+
+    # =====================================================
+    # SPEAKING RATE
+    # =====================================================
+
+    speech_rate = result.get(
+        "speech"
+    )
+
+    if speech_rate:
+
+        if 110 <= speech_rate <= 150:
+
+            strengths.append(
+                f"Your speaking pace of approximately {round(speech_rate)} words per minute is within a comfortable range for clear communication."
+            )
+
+        elif speech_rate > 150:
+
+            improvements.append(
+                "Your speaking pace is relatively fast."
+            )
+
+            suggestions.append(
+                "Slow slightly at important points and use pauses to give the audience time to process your message."
+            )
+
+        elif speech_rate < 100:
+
+            improvements.append(
+                "Your speaking pace is relatively slow."
+            )
+
+            suggestions.append(
+                "Maintain forward momentum while keeping deliberate pauses around your key points."
+            )
+
+    # =====================================================
+    # OPENING
+    # =====================================================
+
+    opening = analysis.get(
+        "opening",
+        ""
+    )
+
+    if opening:
+
+        strengths.append(
+            f'Your opening begins with: "{opening[:180]}". This gives us a concrete starting point for improving how you establish the speech.'
+        )
+
+    # =====================================================
+    # CONCLUSION
+    # =====================================================
+
+    conclusion = analysis.get(
+        "conclusion",
+        ""
+    )
+
+    if conclusion:
+
+        lower_conclusion = conclusion.lower()
+
+        if lower_conclusion in {
+            "thank you",
+            "thanks",
+            "thank you very much",
+        }:
+
+            suggestions.append(
+                'Your final sentence is a simple closing. Consider ending future recordings with a clear takeaway or memorable final message.'
+            )
+
+        elif lower_conclusion:
+
+            strengths.append(
+                "Your speech contains a defined closing statement."
+            )
+
+    # =====================================================
+    # FALLBACK
+    # =====================================================
 
     if not strengths:
 
         strengths.append(
-            "The recording provides a useful baseline of your current communication style, which we can use to track improvement over future recordings."
+            "The available speech measurements have been processed successfully."
         )
 
     if not improvements:
@@ -636,32 +827,14 @@ def generate_ai_feedback(
     if not suggestions:
 
         suggestions.append(
-            "Keep your current strengths and make one focused improvement in your next recording rather than changing your entire speaking style."
+            "Continue practising and compare your next recording against this baseline."
         )
 
-    # Remove duplicates
-
-    strengths = list(
-        dict.fromkeys(strengths)
-    )
-
-    improvements = list(
-        dict.fromkeys(improvements)
-    )
-
-    suggestions = list(
-        dict.fromkeys(suggestions)
-    )
-
     return {
-
-        "analysis_type": analysis_type,
 
         "strengths": strengths,
 
         "improvements": improvements,
 
         "suggestions": suggestions,
-
-        "transcript_analysis": transcript_analysis,
     }

@@ -137,6 +137,7 @@ def show():
                 video_path,
                 analysis_type
             )
+            st.session_state["current_analysis"] = result
 
             progress.progress(85)
 
@@ -148,17 +149,6 @@ def show():
 
             status.info(
                 "🧠 Generating personalized insights..."
-            )
-
-            # Store readiness in current browser session
-            st.session_state["analysis_ready"] = True
-
-            st.session_state["current_upload_key"] = upload_key
-
-            progress.progress(100)
-
-            status.success(
-                "✅ PersonaMirror analysis completed!"
             )
 
             # Save ONLY this latest analysis
@@ -203,7 +193,7 @@ def show():
                     "leadership"
                 )
 
-                st.metric(
+                st.metric( 
                     "Leadership",
                     (
                         f"{leadership}%"

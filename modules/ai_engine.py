@@ -13,7 +13,10 @@
 #   ↓
 # OVERALL SCORE
 #
-# No score is calculated from another score.
+# IMPORTANT:
+# No dimension score is calculated from another dimension score.
+#
+# Missing measurements are NOT replaced by artificial values.
 # =========================================================
 
 import math
@@ -31,7 +34,7 @@ def clamp(value, default=None):
     try:
         value = float(value)
 
-        if math.isnan(value):
+        if not math.isfinite(value):
             return default
 
         return max(
@@ -48,6 +51,9 @@ def clamp(value, default=None):
 
 def get_value(result, key):
 
+    if not isinstance(result, dict):
+        return None
+
     value = result.get(key)
 
     if value is None:
@@ -57,7 +63,7 @@ def get_value(result, key):
 
         value = float(value)
 
-        if math.isnan(value):
+        if not math.isfinite(value):
             return None
 
         if value < 0 or value > 100:
@@ -70,14 +76,51 @@ def get_value(result, key):
         return None
 
 
+# =========================================================
+# WEIGHTED AVERAGE
+# =========================================================
+#
+# Missing measurements are excluded.
+#
+# This means:
+#
+# measured values → contribute
+# unavailable values → do NOT contribute
+#
+# No artificial zeroes.
+# No artificial 100s.
+# =========================================================
+
 def weighted_average(values):
 
-    valid = [
-        (float(value), float(weight))
-        for value, weight in values
-        if value is not None
-        and weight > 0
-    ]
+    valid = []
+
+    for value, weight in values:
+
+        if value is None:
+            continue
+
+        try:
+
+            value = float(value)
+            weight = float(weight)
+
+        except (TypeError, ValueError):
+
+            continue
+
+        if not math.isfinite(value):
+            continue
+
+        if not math.isfinite(weight):
+            continue
+
+        if weight <= 0:
+            continue
+
+        valid.append(
+            (value, weight)
+        )
 
     if not valid:
         return None
@@ -101,7 +144,13 @@ def weighted_average(values):
 
 
 # =========================================================
-# PACE
+# PACE SCORE
+# =========================================================
+#
+# WPM is a PRIMARY measurement.
+#
+# The score rewards a comfortable speaking range,
+# rather than assuming faster is better.
 # =========================================================
 
 def calculate_pace_score(result):
@@ -109,8 +158,14 @@ def calculate_pace_score(result):
     wpm = result.get("speech")
 
     try:
+
         wpm = float(wpm)
+
     except (TypeError, ValueError):
+
+        return None
+
+    if not math.isfinite(wpm):
         return None
 
     if wpm <= 0:
@@ -139,12 +194,24 @@ def calculate_pace_score(result):
 
 # =========================================================
 # REPETITION QUALITY
+# =========================================================
 #
 # PRIMARY SOURCE:
+#
 # repeated_words
 #
-# We intentionally calculate this ourselves rather than
-# trusting an older AI-generated repetition_score.
+# Frequency matters.
+#
+# Example:
+#
+# India ×10
+# merely ×6
+# freedom ×5
+# courage ×4
+#
+# is significantly more repetitive than:
+#
+# India ×2
 # =========================================================
 
 def calculate_repetition_quality(result):
@@ -154,30 +221,42 @@ def calculate_repetition_quality(result):
         {}
     )
 
-    if not isinstance(repeated, dict):
+    if not isinstance(
+        repeated,
+        dict
+    ):
+
         return None
 
     if not repeated:
+
         return 98
 
+    repeated_types = 0
     total_repetitions = 0
-    repeated_word_types = 0
     maximum_frequency = 0
 
-    for word, frequency in repeated.items():
+    for frequency in repeated.values():
 
         try:
-            frequency = int(frequency)
-        except (TypeError, ValueError):
+
+            frequency = int(
+                frequency
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
             continue
 
         if frequency < 2:
             continue
 
-        repeated_word_types += 1
+        repeated_types += 1
 
-        total_repetitions += max(
-            0,
+        total_repetitions += (
             frequency - 1
         )
 
@@ -186,24 +265,40 @@ def calculate_repetition_quality(result):
             frequency
         )
 
-    if repeated_word_types == 0:
+    if repeated_types == 0:
+
         return 98
 
+    # -----------------------------------------------------
+    # Penalty for number of repeated word types.
+    # -----------------------------------------------------
+
     penalty = (
-        repeated_word_types * 5
+        repeated_types * 4
     )
+
+    # -----------------------------------------------------
+    # Penalty for total repeated occurrences.
+    # -----------------------------------------------------
 
     penalty += (
         total_repetitions * 2
     )
 
+    # -----------------------------------------------------
+    # Strong penalty for excessive repetition.
+    # -----------------------------------------------------
+
     if maximum_frequency >= 10:
+
         penalty += 15
 
     elif maximum_frequency >= 7:
+
         penalty += 10
 
     elif maximum_frequency >= 5:
+
         penalty += 5
 
     return clamp(
@@ -213,6 +308,9 @@ def calculate_repetition_quality(result):
 
 # =========================================================
 # FILLER CONTROL
+# =========================================================
+#
+# Uses actual filler count / actual word count.
 # =========================================================
 
 def calculate_filler_quality(result):
@@ -230,11 +328,23 @@ def calculate_filler_quality(result):
         words = float(words)
         fillers = float(fillers)
 
-    except (TypeError, ValueError):
+    except (
+        TypeError,
+        ValueError
+    ):
 
         return None
 
+    if not math.isfinite(words):
+        return None
+
+    if not math.isfinite(fillers):
+        return None
+
     if words <= 0:
+        return None
+
+    if fillers < 0:
         return None
 
     ratio = (
@@ -262,6 +372,15 @@ def calculate_filler_quality(result):
 # =========================================================
 # CONFIDENCE
 # =========================================================
+#
+# PRIMARY MEASUREMENTS ONLY.
+#
+# voice_confidence is used ONLY when actually measured.
+#
+# No leadership.
+# No presentation.
+# No executive presence.
+# =========================================================
 
 def calculate_confidence(result):
 
@@ -273,6 +392,7 @@ def calculate_confidence(result):
     )
 
     if voice_confidence is not None:
+
         values.append(
             (voice_confidence, 0.35)
         )
@@ -283,6 +403,7 @@ def calculate_confidence(result):
     )
 
     if voice_energy is not None:
+
         values.append(
             (voice_energy, 0.20)
         )
@@ -293,6 +414,7 @@ def calculate_confidence(result):
     )
 
     if pause_score is not None:
+
         values.append(
             (pause_score, 0.15)
         )
@@ -303,6 +425,7 @@ def calculate_confidence(result):
     )
 
     if clarity is not None:
+
         values.append(
             (clarity, 0.10)
         )
@@ -312,6 +435,7 @@ def calculate_confidence(result):
     )
 
     if pace is not None:
+
         values.append(
             (pace, 0.10)
         )
@@ -321,11 +445,14 @@ def calculate_confidence(result):
     )
 
     if filler is not None:
+
         values.append(
             (filler, 0.10)
         )
 
-    return weighted_average(values)
+    return weighted_average(
+        values
+    )
 
 
 # =========================================================
@@ -342,6 +469,7 @@ def calculate_leadership(result):
     )
 
     if structure is not None:
+
         values.append(
             (structure, 0.30)
         )
@@ -352,6 +480,7 @@ def calculate_leadership(result):
     )
 
     if clarity is not None:
+
         values.append(
             (clarity, 0.20)
         )
@@ -362,6 +491,7 @@ def calculate_leadership(result):
     )
 
     if voice is not None:
+
         values.append(
             (voice, 0.15)
         )
@@ -372,6 +502,7 @@ def calculate_leadership(result):
     )
 
     if energy is not None:
+
         values.append(
             (energy, 0.10)
         )
@@ -381,6 +512,7 @@ def calculate_leadership(result):
     )
 
     if repetition is not None:
+
         values.append(
             (repetition, 0.10)
         )
@@ -390,11 +522,14 @@ def calculate_leadership(result):
     )
 
     if pace is not None:
+
         values.append(
             (pace, 0.15)
         )
 
-    return weighted_average(values)
+    return weighted_average(
+        values
+    )
 
 
 # =========================================================
@@ -411,6 +546,7 @@ def calculate_interview_score(result):
     )
 
     if clarity is not None:
+
         values.append(
             (clarity, 0.25)
         )
@@ -421,6 +557,7 @@ def calculate_interview_score(result):
     )
 
     if structure is not None:
+
         values.append(
             (structure, 0.20)
         )
@@ -431,6 +568,7 @@ def calculate_interview_score(result):
     )
 
     if voice is not None:
+
         values.append(
             (voice, 0.15)
         )
@@ -440,6 +578,7 @@ def calculate_interview_score(result):
     )
 
     if pace is not None:
+
         values.append(
             (pace, 0.15)
         )
@@ -449,6 +588,7 @@ def calculate_interview_score(result):
     )
 
     if filler is not None:
+
         values.append(
             (filler, 0.15)
         )
@@ -458,11 +598,14 @@ def calculate_interview_score(result):
     )
 
     if repetition is not None:
+
         values.append(
             (repetition, 0.10)
         )
 
-    return weighted_average(values)
+    return weighted_average(
+        values
+    )
 
 
 # =========================================================
@@ -479,6 +622,7 @@ def calculate_presentation_score(result):
     )
 
     if structure is not None:
+
         values.append(
             (structure, 0.25)
         )
@@ -489,6 +633,7 @@ def calculate_presentation_score(result):
     )
 
     if clarity is not None:
+
         values.append(
             (clarity, 0.20)
         )
@@ -499,6 +644,7 @@ def calculate_presentation_score(result):
     )
 
     if voice is not None:
+
         values.append(
             (voice, 0.15)
         )
@@ -509,6 +655,7 @@ def calculate_presentation_score(result):
     )
 
     if energy is not None:
+
         values.append(
             (energy, 0.10)
         )
@@ -519,6 +666,7 @@ def calculate_presentation_score(result):
     )
 
     if gesture is not None:
+
         values.append(
             (gesture, 0.10)
         )
@@ -529,6 +677,7 @@ def calculate_presentation_score(result):
     )
 
     if posture is not None:
+
         values.append(
             (posture, 0.10)
         )
@@ -538,11 +687,14 @@ def calculate_presentation_score(result):
     )
 
     if pace is not None:
+
         values.append(
             (pace, 0.10)
         )
 
-    return weighted_average(values)
+    return weighted_average(
+        values
+    )
 
 
 # =========================================================
@@ -559,6 +711,7 @@ def calculate_executive_presence(result):
     )
 
     if structure is not None:
+
         values.append(
             (structure, 0.25)
         )
@@ -569,6 +722,7 @@ def calculate_executive_presence(result):
     )
 
     if clarity is not None:
+
         values.append(
             (clarity, 0.20)
         )
@@ -579,6 +733,7 @@ def calculate_executive_presence(result):
     )
 
     if voice is not None:
+
         values.append(
             (voice, 0.15)
         )
@@ -589,6 +744,7 @@ def calculate_executive_presence(result):
     )
 
     if energy is not None:
+
         values.append(
             (energy, 0.10)
         )
@@ -599,6 +755,7 @@ def calculate_executive_presence(result):
     )
 
     if posture is not None:
+
         values.append(
             (posture, 0.10)
         )
@@ -609,6 +766,7 @@ def calculate_executive_presence(result):
     )
 
     if gesture is not None:
+
         values.append(
             (gesture, 0.10)
         )
@@ -618,77 +776,158 @@ def calculate_executive_presence(result):
     )
 
     if repetition is not None:
+
         values.append(
             (repetition, 0.10)
         )
 
-    return weighted_average(values)
+    return weighted_average(
+        values
+    )
 
 
 # =========================================================
-# OVERALL
+# OVERALL SCORE
+# =========================================================
 #
-# IMPORTANT:
-# ONLY PRIMARY MEASUREMENTS.
+# PRIMARY MEASUREMENTS ONLY.
 #
-# Never:
+# NEVER USE:
+#
 # confidence
 # leadership
+# interview_score
 # presentation_score
 # executive_presence
+#
 # =========================================================
 
 def calculate_overall_score(result):
 
     values = []
 
-    direct_measurements = [
-        ("speech_quality", 0.18),
-        ("clarity", 0.15),
-        ("structure_score", 0.15),
-        ("voice_confidence", 0.12),
-        ("voice_energy", 0.10),
-    ]
+    # -----------------------------------------------------
+    # Speech quality
+    # -----------------------------------------------------
 
-    for key, weight in direct_measurements:
+    speech_quality = get_value(
+        result,
+        "speech_quality"
+    )
 
-        value = get_value(
-            result,
-            key
+    if speech_quality is not None:
+
+        values.append(
+            (speech_quality, 0.18)
         )
 
-        if value is not None:
+    # -----------------------------------------------------
+    # Clarity
+    # -----------------------------------------------------
 
-            values.append(
-                (value, weight)
-            )
+    clarity = get_value(
+        result,
+        "clarity"
+    )
+
+    if clarity is not None:
+
+        values.append(
+            (clarity, 0.15)
+        )
+
+    # -----------------------------------------------------
+    # Structure
+    # -----------------------------------------------------
+
+    structure = get_value(
+        result,
+        "structure_score"
+    )
+
+    if structure is not None:
+
+        values.append(
+            (structure, 0.15)
+        )
+
+    # -----------------------------------------------------
+    # Voice confidence
+    #
+    # Only contributes when actually measured.
+    # -----------------------------------------------------
+
+    voice_confidence = get_value(
+        result,
+        "voice_confidence"
+    )
+
+    if voice_confidence is not None:
+
+        values.append(
+            (voice_confidence, 0.12)
+        )
+
+    # -----------------------------------------------------
+    # Voice energy
+    # -----------------------------------------------------
+
+    voice_energy = get_value(
+        result,
+        "voice_energy"
+    )
+
+    if voice_energy is not None:
+
+        values.append(
+            (voice_energy, 0.10)
+        )
+
+    # -----------------------------------------------------
+    # Pace
+    # -----------------------------------------------------
 
     pace = calculate_pace_score(
         result
     )
 
     if pace is not None:
+
         values.append(
             (pace, 0.10)
         )
+
+    # -----------------------------------------------------
+    # Repetition
+    # -----------------------------------------------------
 
     repetition = calculate_repetition_quality(
         result
     )
 
     if repetition is not None:
+
         values.append(
             (repetition, 0.10)
         )
+
+    # -----------------------------------------------------
+    # Filler control
+    # -----------------------------------------------------
 
     filler = calculate_filler_quality(
         result
     )
 
     if filler is not None:
+
         values.append(
             (filler, 0.05)
         )
+
+    # -----------------------------------------------------
+    # Posture
+    # -----------------------------------------------------
 
     posture = get_value(
         result,
@@ -696,9 +935,14 @@ def calculate_overall_score(result):
     )
 
     if posture is not None:
+
         values.append(
             (posture, 0.025)
         )
+
+    # -----------------------------------------------------
+    # Gesture
+    # -----------------------------------------------------
 
     gesture = get_value(
         result,
@@ -706,6 +950,7 @@ def calculate_overall_score(result):
     )
 
     if gesture is not None:
+
         values.append(
             (gesture, 0.025)
         )

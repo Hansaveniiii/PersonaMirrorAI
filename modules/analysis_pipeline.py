@@ -273,98 +273,70 @@ def analyze_complete_video(
     print("STEP 5: Voice analysis")
 
     try:
+        voice_result = analyze_voice(video_path)
 
-        voice_result = analyze_voice(
-            video_path
-        )
+        if not isinstance(voice_result, dict):
+            voice_result = {}
 
-        if isinstance(
-            voice_result,
-            dict
-        ):
+        result.update(voice_result)
 
-            result.update(voice_result)
+        voice_energy = voice_result.get("voice_energy")
+        pause_score = voice_result.get("pause_score")
+        voice_confidence = voice_result.get("voice_confidence")
 
-            # Preserve the REAL analyzer availability state.
-            # Never mark voice analysis as available merely because
-            # the function returned a dictionary.
-            result["voice_analysis_available"] = bool(
-                voice_result.get("voice_analysis_available", False)
-            )
+        # Use genuine analyzer measurements when available.
+        # If the analyzer did not combine them, calculate the
+        # combined score from the measured values.
+        if voice_confidence is None:
+            measured = []
 
-            # =================================================
-            # VOICE METRIC AVAILABILITY
-            # =================================================
+            if voice_energy is not None:
+                measured.append(float(voice_energy))
 
-            voice_energy = voice_result.get("voice_energy")
-            pause_score = voice_result.get("pause_score")
-            voice_confidence = voice_result.get("voice_confidence")
+            if pause_score is not None:
+                measured.append(float(pause_score))
 
-            # If the analyzer produced the underlying voice
-            # signals but did not produce the combined score,
-            # calculate the combined score from those real signals.
-            if voice_confidence is None:
-                valid_voice_values = [
-                    float(v)
-                    for v in (voice_energy, pause_score)
-                    if v is not None
-                ]
-
-                if valid_voice_values:
-                    if (
-                        voice_energy is not None
-                        and pause_score is not None
-                    ):
-                        voice_confidence = round(
-                            float(voice_energy) * 0.55
-                            + float(pause_score) * 0.45
-                        )
-                    else:
-                        voice_confidence = round(
-                            sum(valid_voice_values)
-                            / len(valid_voice_values)
-                        )
-
-                    result["voice_confidence"] = max(
-                        0,
-                        min(100, int(voice_confidence))
+            if measured:
+                if (
+                    voice_energy is not None
+                    and pause_score is not None
+                ):
+                    voice_confidence = round(
+                        float(voice_energy) * 0.55
+                        + float(pause_score) * 0.45
+                    )
+                else:
+                    voice_confidence = round(
+                        sum(measured) / len(measured)
                     )
 
-            result["voice_confidence_available"] = (
-                result.get("voice_confidence") is not None
-            )
+                result["voice_confidence"] = int(
+                    max(0, min(100, voice_confidence))
+                )
 
-            result["voice_energy_available"] = (
-                voice_energy is not None
-            )
+        result["voice_confidence_available"] = (
+            result.get("voice_confidence") is not None
+        )
 
-            result["pause_score_available"] = (
-                pause_score is not None
-            )
+        result["voice_energy_available"] = (
+            result.get("voice_energy") is not None
+        )
 
-            result["voice_analysis_available"] = (
-                result["voice_confidence_available"]
-                or result["voice_energy_available"]
-                or result["pause_score_available"]
-            )
+        result["pause_score_available"] = (
+            result.get("pause_score") is not None
+        )
 
-            result["voice_confidence_available"] = (
-                voice_result.get("voice_confidence") is not None
-            )
-
-            result["voice_energy_available"] = (
-                voice_result.get("voice_energy") is not None
-            )
-
-            result["pause_score_available"] = (
-                voice_result.get("pause_score") is not None
-            )
+        result["voice_analysis_available"] = (
+            result["voice_confidence_available"]
+            or result["voice_energy_available"]
+            or result["pause_score_available"]
+        )
 
     except Exception as e:
 
         print(
             "Voice analysis error:",
-            e
+            repr(e)
         )
 
         result["voice_confidence"] = None
@@ -377,7 +349,6 @@ def analyze_complete_video(
         result["voice_analysis_available"] = False
 
 
-    # =========================================================
     # 6. EMOTION ANALYSIS
     # =========================================================
 

@@ -204,9 +204,7 @@ def show():
 
             with c3:
 
-                eye_contact = result.get(
-                    "eye_contact"
-                )
+                eye_contact = result.get("eye_contact")
 
                 st.metric(
                     "Eye Contact",
@@ -215,6 +213,21 @@ def show():
                         if eye_contact is not None
                         else "Not measured"
                     )
+                )
+
+            # -------------------------------------------------
+            # SPEAKING SPEED
+            # -------------------------------------------------
+
+            if speech_rate is not None:
+                st.metric(
+                    "🗣 Speaking Speed",
+                    f"{float(speech_rate):.1f} WPM"
+                )
+            else:
+                st.metric(
+                    "🗣 Speaking Speed",
+                    "Unavailable"
                 )
 
             st.success(

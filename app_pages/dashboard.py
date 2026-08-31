@@ -278,14 +278,24 @@ def show():
 
     words, duration, wpm = calculate_speech_stats(result)
 
-    # Prefer the actual pipeline speech-rate value when available.
-    stored_wpm = result.get("speech")
+    # Use the same verified speech-rate source everywhere.
+    stored_wpm = result.get("speech_rate")
+
+    if stored_wpm is None:
+        stored_wpm = result.get("speech")
 
     try:
         if stored_wpm is not None and float(stored_wpm) > 0:
             wpm = round(float(stored_wpm), 1)
     except (TypeError, ValueError):
         pass
+
+    # Final fallback: transcript words / measured duration.
+    if not wpm and words > 0 and duration > 0:
+        wpm = round(
+            words / (duration / 60.0),
+            1
+        )
 
     # =========================================================
     # HERO

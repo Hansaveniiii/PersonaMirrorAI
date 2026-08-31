@@ -137,6 +137,46 @@ def show():
                 video_path,
                 analysis_type
             )
+
+            # =================================================
+            # VERIFIED SPEAKING SPEED
+            # =================================================
+            # Use measured speech rate when available.
+            # Otherwise derive WPM from transcript words and
+            # measured duration already produced by the pipeline.
+            speech_rate = result.get("speech_rate")
+
+            if speech_rate is None:
+                speech_rate = result.get("speech")
+
+            if speech_rate is None:
+                try:
+                    words = result.get(
+                        "transcript_word_count",
+                        result.get("word_count")
+                    )
+                    duration = result.get("duration")
+
+                    if (
+                        words is not None
+                        and duration is not None
+                        and float(words) > 0
+                        and float(duration) > 0
+                    ):
+                        speech_rate = round(
+                            float(words) /
+                            (float(duration) / 60.0),
+                            1
+                        )
+                except (
+                    TypeError,
+                    ValueError,
+                    ZeroDivisionError
+                ):
+                    speech_rate = None
+
+            if speech_rate is not None:
+                result["speech_rate"] = speech_rate
             st.session_state["current_analysis"] = result
 
             progress.progress(85)
@@ -227,7 +267,7 @@ def show():
             else:
                 st.metric(
                     "🗣 Speaking Speed",
-                    "Unavailable"
+                    "Not measured"
                 )
 
             st.success(

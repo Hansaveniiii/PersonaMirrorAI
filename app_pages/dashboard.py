@@ -207,9 +207,42 @@ def show():
         result.get("leadership")
     )
 
-    voice_confidence = safe_score(
-        result.get("voice_confidence")
-    )
+    voice_confidence = None
+
+    if result.get("voice_confidence_available", False):
+        voice_confidence = safe_score(
+            result.get("voice_confidence")
+        )
+
+    # Backward compatibility for older saved analyses:
+    # if a genuine voice value exists, use it.
+    elif result.get("voice_confidence") is not None:
+        voice_confidence = safe_score(
+            result.get("voice_confidence")
+        )
+
+    voice_energy = None
+    pause_score = None
+
+    if result.get("voice_energy_available", False):
+        voice_energy = safe_score(
+            result.get("voice_energy")
+        )
+
+    elif result.get("voice_energy") is not None:
+        voice_energy = safe_score(
+            result.get("voice_energy")
+        )
+
+    if result.get("pause_score_available", False):
+        pause_score = safe_score(
+            result.get("pause_score")
+        )
+
+    elif result.get("pause_score") is not None:
+        pause_score = safe_score(
+            result.get("pause_score")
+        )
 
     presentation = safe_score(
         result.get("presentation_score")
@@ -243,9 +276,16 @@ def show():
     # SPEECH STATS
     # =========================================================
 
-    words, duration, wpm = calculate_speech_stats(
-        result
-    )
+    words, duration, wpm = calculate_speech_stats(result)
+
+    # Prefer the actual pipeline speech-rate value when available.
+    stored_wpm = result.get("speech")
+
+    try:
+        if stored_wpm is not None and float(stored_wpm) > 0:
+            wpm = round(float(stored_wpm), 1)
+    except (TypeError, ValueError):
+        pass
 
     # =========================================================
     # HERO

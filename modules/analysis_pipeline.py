@@ -283,17 +283,25 @@ def analyze_complete_video(
             dict
         ):
 
-            result.update(
-                voice_result
+            result.update(voice_result)
+
+            # Preserve the REAL analyzer availability state.
+            # Never mark voice analysis as available merely because
+            # the function returned a dictionary.
+            result["voice_analysis_available"] = bool(
+                voice_result.get("voice_analysis_available", False)
             )
 
-            # Voice metrics are measured only when the voice analyzer
-            # actually returned valid values.
-            result["voice_analysis_available"] = bool(
-                voice_result.get(
-                    "voice_analysis_available",
-                    False
-                )
+            result["voice_confidence_available"] = (
+                voice_result.get("voice_confidence") is not None
+            )
+
+            result["voice_energy_available"] = (
+                voice_result.get("voice_energy") is not None
+            )
+
+            result["pause_score_available"] = (
+                voice_result.get("pause_score") is not None
             )
 
             result["voice_confidence_available"] = (

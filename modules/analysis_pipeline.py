@@ -292,16 +292,60 @@ def analyze_complete_video(
                 voice_result.get("voice_analysis_available", False)
             )
 
+            # =================================================
+            # VOICE METRIC AVAILABILITY
+            # =================================================
+
+            voice_energy = voice_result.get("voice_energy")
+            pause_score = voice_result.get("pause_score")
+            voice_confidence = voice_result.get("voice_confidence")
+
+            # If the analyzer produced the underlying voice
+            # signals but did not produce the combined score,
+            # calculate the combined score from those real signals.
+            if voice_confidence is None:
+                valid_voice_values = [
+                    float(v)
+                    for v in (voice_energy, pause_score)
+                    if v is not None
+                ]
+
+                if valid_voice_values:
+                    if (
+                        voice_energy is not None
+                        and pause_score is not None
+                    ):
+                        voice_confidence = round(
+                            float(voice_energy) * 0.55
+                            + float(pause_score) * 0.45
+                        )
+                    else:
+                        voice_confidence = round(
+                            sum(valid_voice_values)
+                            / len(valid_voice_values)
+                        )
+
+                    result["voice_confidence"] = max(
+                        0,
+                        min(100, int(voice_confidence))
+                    )
+
             result["voice_confidence_available"] = (
-                voice_result.get("voice_confidence") is not None
+                result.get("voice_confidence") is not None
             )
 
             result["voice_energy_available"] = (
-                voice_result.get("voice_energy") is not None
+                voice_energy is not None
             )
 
             result["pause_score_available"] = (
-                voice_result.get("pause_score") is not None
+                pause_score is not None
+            )
+
+            result["voice_analysis_available"] = (
+                result["voice_confidence_available"]
+                or result["voice_energy_available"]
+                or result["pause_score_available"]
             )
 
             result["voice_confidence_available"] = (
